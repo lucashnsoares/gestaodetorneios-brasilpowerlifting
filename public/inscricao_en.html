@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lifter Registration & Management</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #eef2f3; margin: 0; }
+        .container { max-width: 880px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        h1, h2 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+        .linha { display: flex; gap: 15px; margin-top: 15px; flex-wrap: wrap; }
+        .linha > div { flex: 1; min-width: 200px; }
+        label { font-weight: bold; font-size: 14px; display: block; margin-bottom: 5px; color: #555; }
+        input[type="text"], input[type="date"], select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; background: #fdfdfd; font-size: 15px; }
+        
+        .painel-modo { background: #ecf0f1; padding: 15px; border-radius: 6px; margin-top: 20px; border-left: 5px solid #3498db; }
+        .painel-modo.editando { background: #fff8e1; border-left-color: #f39c12; }
+
+        .box-importar-historico { background: #e8f8f5; border: 1px solid #a3e4d7; padding: 12px 15px; border-radius: 6px; margin-top: 15px; position: relative; }
+        .lista-sugestoes-cpf { display: none; margin-top: 8px; background: white; border: 1px solid #bdc3c7; border-radius: 4px; max-height: 160px; overflow-y: auto; }
+        .item-sugestao-cpf { padding: 8px 12px; border-bottom: 1px solid #eee; cursor: pointer; font-size: 14px; display: flex; justify-content: space-between; align-items: center; }
+        .item-sugestao-cpf:hover { background: #d4efdf; }
+
+        /* Alerta interativo de CPF já existente (não-destrutivo) */
+        .alerta-cpf-existente { display: none; background: #fff8e1; border: 2px solid #f39c12; border-radius: 6px; padding: 12px 15px; margin-top: 12px; color: #7d6608; font-size: 14px; }
+        .alerta-cpf-existente .botoes-cpf { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+        .btn-cpf-preencher { background: #16a085; color: white; border: none; padding: 8px 14px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 13px; }
+        .btn-cpf-preencher:hover { background: #1abc9c; }
+        .btn-cpf-ignorar { background: #7f8c8d; color: white; border: none; padding: 8px 14px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 13px; }
+        .btn-cpf-ignorar:hover { background: #636e72; }
+
+        .divisoes-box { display: flex; flex-wrap: wrap; gap: 10px; background: #f8f9fa; padding: 12px; border: 1px solid #ccc; border-radius: 4px; }
+        .divisao-item { display: flex; align-items: center; gap: 6px; background: white; padding: 8px 12px; border-radius: 4px; border: 1px solid #ddd; cursor: pointer; font-weight: bold; font-size: 14px; color: #2c3e50; }
+        .divisao-item input { width: 16px; height: 16px; cursor: pointer; }
+
+        .btn-salvar { background: #2ecc71; color: white; font-size: 18px; padding: 15px; width: 100%; border: none; border-radius: 5px; cursor: pointer; margin-top: 30px; font-weight: bold; }
+        .btn-salvar:hover { background: #27ae60; }
+        .btn-salvar:disabled { background: #95a5a6; cursor: not-allowed; }
+        .btn-cancelar-edicao { background: #95a5a6; color: white; font-size: 15px; padding: 10px; width: 100%; border: none; border-radius: 5px; cursor: pointer; margin-top: 10px; font-weight: bold; display: none; }
+        .checkbox-container { display: flex; align-items: center; gap: 10px; margin-top: 20px; font-weight: bold; color: #e74c3c; }
+    </style>
+</head>
+<body>
+<!-- Barra de Navegação Global -->
+<nav style="background: #2c3e50; padding: 15px; margin-bottom: 20px; display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+    <a href="/" style="color: white; text-decoration: none; font-weight: bold;">🏠 Home</a>
+    <a href="/criar-evento" style="color: #bdc3c7; text-decoration: none;">1. Meet</a>
+    <a href="/inscricao" style="color: #3498db; text-decoration: none; font-weight: bold;">2. Registration</a>
+    <a href="/baterias" style="color: #bdc3c7; text-decoration: none;">3. Flights</a>
+    <a href="/pesagem" style="color: #bdc3c7; text-decoration: none;">4. Weigh-in</a>
+    <a href="/admin" style="color: #bdc3c7; text-decoration: none;">5. Scorer's Table</a>
+    <a href="/display" style="color: #2ecc71; text-decoration: none;">6. Scoreboard</a>
+    <a href="/resultados" style="color: #f1c40f; text-decoration: none;">7. Results 🏆</a>
+    <a href="/nuvem" style="color: #1abc9c; text-decoration: none; font-weight: bold;">☁️ Cloud</a>
+</nav>
+
+<div class="container">
+    <h1>Lifter Registration & Management</h1>
+
+    <label>1. Select Meet / Championship</label>
+    <select id="select_evento" onchange="carregarRegrasEvento()">
+        <option value="">-- Loading Meets... --</option>
+    </select>
+
+    <div id="form_inscricao" style="display: none;">
+        
+        <!-- SELETOR DE MODO: NOVA INSCRIÇÃO OU EDITAR ATLETA -->
+        <div class="painel-modo" id="painel_modo">
+            <label style="margin-top: 0; color: #2c3e50;">2. What would you like to do in this meet?</label>
+            <input type="text" id="filtro_edicao_atleta" placeholder="🔍 Filter lifters registered in this meet..." oninput="renderizarSelectsAtletas()" style="margin-bottom: 8px; font-size: 14px;">
+            <select id="select_modo_atleta" onchange="alternarModoFormulario()" style="font-weight: bold;">
+                <option value="NOVO">✨ REGISTER NEW LIFTER</option>
+            </select>
+        </div>
+
+        <!-- BUSCA RÁPIDA NO HISTÓRICO DE OUTROS CAMPEONATOS (POR CPF OU NOME) -->
+        <div class="box-importar-historico" id="box_importar_historico">
+            <label style="margin: 0 0 5px 0; color: #117864;">⚡ Has this lifter competed before? Auto-fill by searching CPF/ID or Name:</label>
+            <input type="text" id="busca_historico_atleta" placeholder="Type the CPF/ID or name of a lifter from previous meets..." oninput="buscarAtletaNoHistoricoGeral(this.value)" style="font-size: 14px;">
+            <div class="lista-sugestoes-cpf" id="lista_sugestoes_historico"></div>
+        </div>
+
+        <input type="hidden" id="inscricao_id_edicao" value="">
+        <input type="hidden" id="versao_edicao" value="">
+
+        <h2 id="titulo_formulario">Personal Information (New Lifter)</h2>
+        <div class="linha">
+            <div style="flex: 2;">
+                <label>Full Name *</label>
+                <input type="text" id="at_nome" placeholder="Lifter's full name" maxlength="120">
+            </div>
+            <div style="flex: 1;">
+                <label>CPF / ID <small style="color:#7f8c8d; font-weight:normal;">(Optional - Unique Identifier)</small></label>
+                <input type="text" id="at_cpf" placeholder="000.000.000-00" maxlength="14" oninput="aoDigitarCPF(this)">
+            </div>
+        </div>
+
+        <!-- BANNER DE AVISO DE CPF JÁ EXISTENTE (PERMITE PRÉ-PREENCHER OU CONTINUAR SEM SOBRESCREVER) -->
+        <div class="alerta-cpf-existente" id="alerta_cpf_existente">
+            <div id="texto_alerta_cpf"></div>
+            <div class="botoes-cpf" id="botoes_alerta_cpf">
+                <button type="button" class="btn-cpf-preencher" id="btn_cpf_preencher" onclick="confirmarPreenchimentoCPFExistente()">
+                    📥 Yes, auto-fill form with this lifter's data
+                </button>
+                <button type="button" class="btn-cpf-ignorar" onclick="ignorarCPFExistenteECriarNovo()">
+                    ➕ No, keep my current data
+                </button>
+            </div>
+        </div>
+
+        <div class="linha">
+            <div>
+                <label>Date of Birth <small style="color:#7f8c8d; font-weight:normal;">(Optional — DD/MM/YYYY or Year)</small></label>
+                <input type="text" id="at_nascimento" placeholder="Optional (DD/MM/YYYY)" maxlength="10" oninput="mascaraData(this)">
+            </div>
+            <div>
+                <label>Sex (Biological) <small style="color:#7f8c8d; font-weight:normal;">(Default: Male)</small></label>
+                <select id="at_sexo" onchange="atualizarSelectPeso()">
+                    <option value="M" selected>Male</option>
+                    <option value="F">Female</option>
+                </select>
+            </div>
+            <div>
+                <label>WhatsApp / Phone <small style="color:#7f8c8d; font-weight:normal;">(Optional)</small></label>
+                <input type="text" id="at_whatsapp" placeholder="(11) 99999-9999" maxlength="15" oninput="mascaraTelefone(this)">
+            </div>
+        </div>
+
+        <div class="linha">
+            <div><label>City</label><input type="text" id="at_cidade" maxlength="80"></div>
+            <div><label>State</label>
+                <select id="at_estado">
+                    <option value="SP">São Paulo</option>
+                    <option value="AC">Acre</option>
+                    <option value="AL">Alagoas</option>
+                    <option value="AP">Amapá</option>
+                    <option value="AM">Amazonas</option>
+                    <option value="BA">Bahia</option>
+                    <option value="CE">Ceará</option>
+                    <option value="DF">Distrito Federal</option>
+                    <option value="ES">Espírito Santo</option>
+                    <option value="GO">Goiás</option>
+                    <option value="MA">Maranhão</option>
+                    <option value="MT">Mato Grosso</option>
+                    <option value="MS">Mato Grosso do Sul</option>
+                    <option value="MG">Minas Gerais</option>
+                    <option value="PA">Pará</option>
+                    <option value="PB">Paraíba</option>
+                    <option value="PR">Paraná</option>
+                    <option value="PE">Pernambuco</option>
+                    <option value="PI">Piauí</option>
+                    <option value="RJ">Rio de Janeiro</option>
+                    <option value="RN">Rio Grande do Norte</option>
+                    <option value="RS">Rio Grande do Sul</option>
+                    <option value="RO">Rondônia</option>
+                    <option value="RR">Roraima</option>
+                    <option value="SC">Santa Catarina</option>
+                    <option value="SE">Sergipe</option>
+                    <option value="TO">Tocantins</option>
+                </select>
+            </div>
+            <div><label>Team</label><input type="text" id="at_equipe" value="Unattached" maxlength="80"></div>
+        </div>
+
+        <!-- REDES SOCIAIS OPCIONAIS -->
+        <div class="linha">
+            <div>
+                <label>📷 Instagram <small style="color:#7f8c8d; font-weight:normal;">(Optional)</small></label>
+                <input type="text" id="at_instagram" placeholder="@username" maxlength="80">
+            </div>
+            <div>
+                <label>▶️ YouTube <small style="color:#7f8c8d; font-weight:normal;">(Optional)</small></label>
+                <input type="text" id="at_youtube" placeholder="@channel" maxlength="100">
+            </div>
+            <div>
+                <label>🌐 Other <small style="color:#7f8c8d; font-weight:normal;">(TikTok, Website, etc.)</small></label>
+                <input type="text" id="at_outros_social" placeholder="Other social media" maxlength="100">
+            </div>
+        </div>
+
+        <div class="checkbox-container">
+            <input type="checkbox" id="at_pcd" style="width: 20px; height: 20px;">
+            <label for="at_pcd" style="margin: 0; color: #e74c3c; cursor: pointer;">Adaptive / Para-Athlete (Person with Disability)</label>
+        </div>
+
+        <h2>Competition Details</h2>
+        <div class="linha">
+            <div>
+                <label>Competition Event / Lift</label>
+                <select id="at_modalidade"><option>Select a meet first</option></select>
+            </div>
+            <div>
+                <label>Equipment / Division</label>
+                <select id="at_equipamento"><option>Select a meet first</option></select>
+            </div>
+            <div>
+                <label>Weight Class (kg)</label>
+                <select id="at_categoria_peso"><option>Select sex first</option></select>
+            </div>
+        </div>
+
+        <div style="margin-top: 15px;">
+            <label>Age Divisions (You may check more than one if the lifter is crossing over, e.g., Open + Master 1)</label>
+            <div class="divisoes-box" id="container_divisoes_idade">
+                Select a meet first...
+            </div>
+        </div>
+
+        <button class="btn-salvar" id="btn_salvar_principal" onclick="salvarInscricao()">Confirm Registration</button>
+        <button class="btn-cancelar-edicao" id="btn_cancelar_edicao" onclick="resetarFormularioParaNovo()">Cancel Editing & Return to New Registration</button>
+
+        <hr style="margin: 40px 0; border: 1px solid #ddd;">
+
+        <h2 style="color: #e74c3c; border-bottom-color: #e74c3c;">Cancel Registration (Remove Lifter)</h2>
+        <div class="linha">
+            <div>
+                <label>Select the Lifter who will no longer compete (Moves to Canceled Archive)</label>
+                <select id="select_cancelar_atleta" style="border: 2px solid #e74c3c;">
+                    <option value="">-- Loading Lifters... --</option>
+                </select>
+            </div>
+        </div>
+        <button class="btn-salvar" id="btn_arquivar_atleta" style="background: #e74c3c; margin-top: 15px;" onclick="cancelarInscricao()">Remove Lifter from Meet</button>
+    </div>
+</div>
+<!-- MODAL DE CONFIRMAÇÃO DE LIMITE DA LICENÇA NA NUVEM -->
+<div id="modal_aviso_limite_nuvem" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.75); z-index:9999; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
+    <div style="background:white; max-width:560px; width:100%; border-radius:8px; padding:25px; border-top:6px solid #e67e22; box-shadow:0 10px 30px rgba(0,0,0,0.35);">
+        <h3 style="margin-top:0; color:#d35400;">⚠️ Cloud License Registration Limit Reached</h3>
+        <p id="texto_modal_limite_nuvem" style="color:#2c3e50; font-size:15px; line-height:1.55; margin-bottom:22px;">
+            Registering a new lifter on the offline platform will terminate cloud synchronization. Remove a registration or an inactive meet to register more lifters without losing synchronization.
+        </p>
+        <div style="display:flex; gap:12px; justify-content:flex-end; flex-wrap:wrap;">
+            <button type="button" id="btn_modal_limite_cancelar" style="background:#7f8c8d; color:white; border:none; padding:11px 18px; border-radius:5px; font-weight:bold; cursor:pointer;">
+                Cancel
+            </button>
+            <button type="button" id="btn_modal_limite_confirmar" style="background:#c0392b; color:white; border:none; padding:11px 18px; border-radius:5px; font-weight:bold; cursor:pointer;">
+                I understand and wish to cancel synchronization
+            </button>
+        </div>
+    </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+    const socket = io({ reconnection: true });
+    let regrasEventoAtual = null;
+    let listaInscricoesEvento = [];
+    let resultadosBuscaHistorico = [];
+    let timerBuscaHistorico = null;
+    let timerVerificacaoCPF = null;
+
+    // Estado de resolução de CPF (evita sobrescrever outro atleta acidentalmente)
+    let atletaIdVinculadoPorCPF = null;
+    let forcarNovoAtletaMesmoComCPF = false;
+    let atletaConflitoCPFDetectado = null;
+
+    window.onerror = function(msg, url, lineNo) {
+        console.error("🛡️ [AIRBAG INSCRIÇÃO]:", msg, "Linha:", lineNo);
+        return false;
+    };
+
+    // Fecha a lista de sugestões de histórico se o organizador clicar fora da caixa
+    document.addEventListener('click', (ev) => {
+        const box = document.getElementById('box_importar_historico');
+        const lista = document.getElementById('lista_sugestoes_historico');
+        if (box && lista && !box.contains(ev.target)) {
+            lista.style.display = 'none';
+        }
+    });
+
+    function escapeHtml(texto) {
+        if (texto === undefined || texto === null) return '';
+        return String(texto)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function traduzirTermoExibicao(termo) {
+        if (termo === undefined || termo === null) return '';
+        const str = String(termo).trim();
+        const mapa = {
+            'Agachamento': 'Squat',
+            'Supino': 'Bench Press',
+            'Terra': 'Deadlift',
+            'Levantamento Terra': 'Deadlift',
+            'Supino + Terra': 'Push & Pull',
+            'Supino e Terra': 'Push & Pull',
+            'Agachamento + Supino': 'Squat & Bench',
+            'Equipado': 'Equipped',
+            'Raw com Faixa': 'Classic Raw (Wraps)',
+            'Com Faixa': 'Wraps',
+            'Faixa': 'Wraps',
+            'Joelheira': 'Sleeves',
+            'Sub-Júnior': 'Sub-Junior',
+            'Sub Junior': 'Sub-Junior',
+            'Júnior': 'Junior',
+            'Estreante': 'Novice',
+            'Estreantes': 'Novice',
+            'Militar': 'Military / Law Enforcement',
+            'Policial': 'Military / Law Enforcement',
+            'Convidado': 'Guest',
+            'Livre': 'Open / Unassigned',
+            'Sem Equipe': 'Unattached'
+        };
+        return mapa[str] || str;
+    }
+
+    async function fetchSeguro(url, opcoes = {}, timeoutMs = 8000) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            const res = await fetch(url, { ...opcoes, signal: controller.signal });
+            clearTimeout(timer);
+            const dados = await res.json().catch(() => ({}));
+            return { status: res.status, ok: res.ok, dados };
+        } catch (erro) {
+            clearTimeout(timer);
+            throw erro;
+        }
+    }
+
+    socket.on('dados_atletas_atualizados', async (info) => {
+        const eventoAtualId = document.getElementById('select_evento').value;
+        if (eventoAtualId && String(info?.evento_id) === String(eventoAtualId)) {
+            await atualizarListasAtletasSilenciosamente();
+        }
+    });
+
+    function mascaraCPF(input) {
+        let v = String(input.value || '').replace(/\D/g, '').slice(0, 11);
+        if (v.length > 9) {
+            input.value = `${v.slice(0, 3)}.${v.slice(3, 6)}.${v.slice(6, 9)}-${v.slice(9)}`;
+        } else if (v.length > 6) {
+            input.value = `${v.slice(0, 3)}.${v.slice(3, 6)}.${v.slice(6)}`;
+        } else if (v.length > 3) {
+            input.value = `${v.slice(0, 3)}.${v.slice(3)}`;
+        } else {
+            input.value = v;
+        }
+    }
+
+    // Verifica em tempo real se o CPF digitado já existe na base para oferecer pré-preenchimento ou alertar conflito
+    function aoDigitarCPF(input) {
+        mascaraCPF(input);
+        clearTimeout(timerVerificacaoCPF);
+
+        const inscricaoIdEdicao = document.getElementById('inscricao_id_edicao').value;
+        const digitos = String(input.value || '').replace(/\D/g, '');
+
+        if (!inscricaoIdEdicao) {
+            atletaIdVinculadoPorCPF = null;
+        }
+        forcarNovoAtletaMesmoComCPF = false;
+        atletaConflitoCPFDetectado = null;
+
+        if (digitos.length !== 11) {
+            ocultarAlertaCPFExistente();
+            return;
+        }
+
+        timerVerificacaoCPF = setTimeout(async () => {
+            try {
+                const { ok, dados } = await fetchSeguro(`/api/atletas/verificar_cpf/${digitos}`);
+                if (!ok || !dados || !dados.encontrado || !dados.atleta) {
+                    ocultarAlertaCPFExistente();
+                    return;
+                }
+
+                const atl = dados.atleta;
+                const nomeDigitado = document.getElementById('at_nome').value.trim();
+
+                // Se estamos editando este exato atleta, não há conflito
+                if (inscricaoIdEdicao && Number(atl.id) === Number(atletaIdVinculadoPorCPF)) {
+                    ocultarAlertaCPFExistente();
+                    return;
+                }
+
+                // Se estamos cadastrando novo e o nome já coincide, vincula silenciosamente
+                if (!inscricaoIdEdicao && nomeDigitado && nomeDigitado.toLowerCase() === String(atl.nome || '').trim().toLowerCase()) {
+                    atletaIdVinculadoPorCPF = atl.id;
+                    ocultarAlertaCPFExistente();
+                    return;
+                }
+
+                atletaConflitoCPFDetectado = atl;
+                const banner = document.getElementById('alerta_cpf_existente');
+                const texto = document.getElementById('texto_alerta_cpf');
+                const btnPreencher = document.getElementById('btn_cpf_preencher');
+                const nascFmt = formatarDataBancoParaTela(atl.data_nascimento) || '--';
+
+                const equipeExibicao = (!atl.equipe || atl.equipe === 'Sem Equipe') ? 'Unattached' : atl.equipe;
+                if (inscricaoIdEdicao) {
+                    texto.innerHTML = `⚠️ <strong>Warning:</strong> This CPF/ID is already registered to another lifter: <strong>${escapeHtml(atl.nome)}</strong> (DOB: ${escapeHtml(nascFmt)} | Team: ${escapeHtml(equipeExibicao)}). Please check if the number is correct.`;
+                    if (btnPreencher) btnPreencher.style.display = 'none';
+                } else {
+                    texto.innerHTML = `⚠️ <strong>CPF/ID already registered in the system:</strong> We found <strong>${escapeHtml(atl.nome)}</strong> (DOB: ${escapeHtml(nascFmt)} | Team: ${escapeHtml(equipeExibicao)}) with this CPF/ID. What would you like to do?`;
+                    if (btnPreencher) btnPreencher.style.display = 'inline-block';
+                }
+                banner.style.display = 'block';
+            } catch (e) {
+                ocultarAlertaCPFExistente();
+            }
+        }, 250);
+    }
+
+    function ocultarAlertaCPFExistente() {
+        const banner = document.getElementById('alerta_cpf_existente');
+        if (banner) banner.style.display = 'none';
+    }
+
+    function aplicarDadosDeAtletaExistenteNoFormulario(atl) {
+        if (!atl) return;
+        atletaIdVinculadoPorCPF = atl.id;
+        forcarNovoAtletaMesmoComCPF = false;
+        atletaConflitoCPFDetectado = null;
+
+        document.getElementById('at_nome').value = atl.nome || '';
+        document.getElementById('at_cpf').value = formatarCPFBancoParaTela(atl.cpf);
+        document.getElementById('at_nascimento').value = formatarDataBancoParaTela(atl.data_nascimento);
+        document.getElementById('at_sexo').value = atl.sexo || 'M';
+        document.getElementById('at_whatsapp').value = atl.whatsapp || '';
+        document.getElementById('at_cidade').value = atl.cidade || '';
+        document.getElementById('at_estado').value = atl.estado || 'SP';
+        document.getElementById('at_equipe').value = (!atl.equipe || atl.equipe === 'Sem Equipe') ? 'Unattached' : atl.equipe;
+        document.getElementById('at_pcd').checked = Boolean(atl.pcd);
+        document.getElementById('at_instagram').value = atl.instagram || '';
+        document.getElementById('at_youtube').value = atl.youtube || '';
+        document.getElementById('at_outros_social').value = atl.outros_social || '';
+
+        atualizarSelectPeso();
+        ocultarAlertaCPFExistente();
+    }
+
+    function confirmarPreenchimentoCPFExistente() {
+        if (!atletaConflitoCPFDetectado) return;
+        aplicarDadosDeAtletaExistenteNoFormulario(atletaConflitoCPFDetectado);
+    }
+
+    function ignorarCPFExistenteECriarNovo() {
+        if (!document.getElementById('inscricao_id_edicao').value) {
+            atletaIdVinculadoPorCPF = null;
+            forcarNovoAtletaMesmoComCPF = true;
+        }
+        atletaConflitoCPFDetectado = null;
+        ocultarAlertaCPFExistente();
+    }
+
+    function formatarCPFBancoParaTela(cpf) {
+        if (!cpf) return '';
+        const d = String(cpf).replace(/\D/g, '').slice(0, 11);
+        if (d.length === 11) {
+            return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
+        }
+        return d;
+    }
+
+    function mascaraData(input) {
+        let v = input.value.replace(/\D/g, "");
+        if (v.length > 8) v = v.slice(0, 8);
+        // Se o organizador digitar apenas os 4 dígitos do ano (ex: 1995), não força barra até o 5º dígito
+        if (v.length === 4 && (v.startsWith("19") || v.startsWith("20"))) {
+            input.value = v;
+            return;
+        }
+        if (v.length >= 5) {
+            input.value = `${v.slice(0, 2)}/${v.slice(2, 4)}/${v.slice(4)}`;
+        } else if (v.length >= 3) {
+            input.value = `${v.slice(0, 2)}/${v.slice(2)}`;
+        } else {
+            input.value = v;
+        }
+    }
+
+    function converterDataTelaParaISO(dataTela) {
+        const limpo = String(dataTela || '').trim();
+        if (!limpo) return null;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(limpo)) return limpo;
+
+        // Suporte flexível: se o organizador souber apenas o ano de nascimento (ex: 1996)
+        if (/^\d{4}$/.test(limpo)) {
+            const anoUnico = parseInt(limpo, 10);
+            if (anoUnico >= 1900 && anoUnico <= 2100) {
+                return `${anoUnico}-01-01`;
+            }
+        }
+
+        const match = limpo.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if (!match) return null;
+
+        const dia = parseInt(match[1], 10);
+        const mes = parseInt(match[2], 10);
+        const ano = parseInt(match[3], 10);
+
+        if (ano < 1900 || ano > 2100 || mes < 1 || mes > 12 || dia < 1 || dia > 31) {
+            return null;
+        }
+
+        const dataObj = new Date(ano, mes - 1, dia);
+        if (dataObj.getFullYear() !== ano || dataObj.getMonth() !== mes - 1 || dataObj.getDate() !== dia) {
+            return null;
+        }
+
+        return `${String(ano).padStart(4, '0')}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+    }
+
+    function mascaraTelefone(input) {
+        let v = input.value.replace(/\D/g, "");
+        if (v.startsWith("0")) v = v.substring(1);
+        if (v.length > 11) v = v.slice(0, 11);
+        if (v.length > 10) {
+            input.value = v.replace(/^(\d{2})(\d{5})(\d{4}).*/, "($1) $2-$3");
+        } else if (v.length > 6) {
+            input.value = v.replace(/^(\d{2})(\d{4})(\d{0,4}).*/, "($1) $2-$3");
+        } else if (v.length > 2) {
+            input.value = v.replace(/^(\d{2})(\d{0,5})/, "($1) $2");
+        } else if (v.length > 0) {
+            input.value = v.replace(/^(\d*)/, "($1");
+        } else {
+            input.value = "";
+        }
+    }
+
+    function formatarDataBancoParaTela(dataBanco) {
+        if (!dataBanco) return '';
+        const str = String(dataBanco).trim();
+        if (str.includes('/')) return str;
+        const partes = str.split('-');
+        if (partes.length === 3) return `${partes[2]}/${partes[1]}/${partes[0]}`;
+        return str;
+    }
+
+    function extrairArrayDivisoes(divisaoSalva) {
+        if (!divisaoSalva) return [];
+        if (Array.isArray(divisaoSalva)) return divisaoSalva;
+        const str = String(divisaoSalva).trim();
+        if (str.startsWith('[')) {
+            try { return JSON.parse(str); } catch (e) { return [str]; }
+        }
+        return [str];
+    }
+
+    function formatarTextoDivisoes(divisaoSalva) {
+        const arr = extrairArrayDivisoes(divisaoSalva);
+        return arr.map(d => traduzirTermoExibicao(d)).join(' + ');
+    }
+
+    function renderizarCheckboxesDivisoesPadrao() {
+        const contDiv = document.getElementById('container_divisoes_idade');
+        if (!contDiv || !regrasEventoAtual) return;
+        contDiv.innerHTML = '';
+        (regrasEventoAtual.divisoes_idade || ['Open']).forEach((d, idx) => {
+            contDiv.innerHTML += `
+                <label class="divisao-item">
+                    <input type="checkbox" class="chk-divisao-idade" value="${escapeHtml(d)}" ${idx === 0 ? 'checked' : ''}>
+                    ${escapeHtml(traduzirTermoExibicao(d))}
+                </label>
+            `;
+        });
+    }
+
+    function buscarAtletaNoHistoricoGeral(termo) {
+        clearTimeout(timerBuscaHistorico);
+        const cont = document.getElementById('lista_sugestoes_historico');
+        const limpo = String(termo || '').trim();
+        if (limpo.length < 3) {
+            cont.style.display = 'none';
+            cont.innerHTML = '';
+            return;
+        }
+
+        timerBuscaHistorico = setTimeout(async () => {
+            try {
+                const { ok, dados } = await fetchSeguro(`/api/atletas/buscar?termo=${encodeURIComponent(limpo)}`);
+                if (!ok || !Array.isArray(dados) || dados.length === 0) {
+                    cont.style.display = 'none';
+                    return;
+                }
+                resultadosBuscaHistorico = dados;
+                cont.innerHTML = '';
+                dados.forEach((atl, idx) => {
+                    const cpfTxt = atl.cpf ? `CPF/ID: ${formatarCPFBancoParaTela(atl.cpf)}` : 'No CPF/ID';
+                    const equipeTxt = (!atl.equipe || atl.equipe === 'Sem Equipe') ? 'Unattached' : atl.equipe;
+                    cont.innerHTML += `
+                        <div class="item-sugestao-cpf" onclick="preencherComAtletaDoHistorico(${idx})">
+                            <span><strong>${escapeHtml(atl.nome)}</strong> (${escapeHtml(equipeTxt)})</span>
+                            <small style="color:#117864; font-weight:bold;">${escapeHtml(cpfTxt)} — Click to use</small>
+                        </div>
+                    `;
+                });
+                cont.style.display = 'block';
+            } catch (e) {
+                cont.style.display = 'none';
+            }
+        }, 250);
+    }
+
+    function preencherComAtletaDoHistorico(idx) {
+        const atl = resultadosBuscaHistorico[idx];
+        if (!atl) return;
+
+        aplicarDadosDeAtletaExistenteNoFormulario(atl);
+        document.getElementById('lista_sugestoes_historico').style.display = 'none';
+        document.getElementById('busca_historico_atleta').value = '';
+    }
+
+    window.onload = async function() {
+        try {
+            const { ok, dados: eventos } = await fetchSeguro('/api/eventos');
+            const select = document.getElementById('select_evento');
+            select.innerHTML = '<option value="">-- Select Meet / Championship --</option>';
+            if (ok && Array.isArray(eventos)) {
+                eventos.forEach(ev => {
+                    select.innerHTML += `<option value="${ev.id}">${escapeHtml(ev.nome)}</option>`;
+                });
+            }
+        } catch (e) {
+            console.error("Error loading events:", e);
+        }
+    };
+
+    async function carregarRegrasEvento() {
+        const eventoId = document.getElementById('select_evento').value;
+        const form = document.getElementById('form_inscricao');
+        
+        if (!eventoId) {
+            form.style.display = 'none';
+            return;
+        }
+
+        try {
+            const { ok, dados } = await fetchSeguro(`/api/eventos/${eventoId}`);
+            if (!ok || !dados) throw new Error("Failed to fetch meet rules.");
+            regrasEventoAtual = dados;
+
+            const selMod = document.getElementById('at_modalidade');
+            selMod.innerHTML = '';
+            (regrasEventoAtual.modalidades || ['Full Power']).forEach(m => {
+                selMod.innerHTML += `<option value="${escapeHtml(m)}">${escapeHtml(traduzirTermoExibicao(m))}</option>`;
+            });
+
+            const selEquip = document.getElementById('at_equipamento');
+            selEquip.innerHTML = '';
+            const equipamentos = Array.isArray(regrasEventoAtual.equipamentos) && regrasEventoAtual.equipamentos.length > 0 
+                ? regrasEventoAtual.equipamentos 
+                : ['Raw'];
+            equipamentos.forEach(eq => {
+                selEquip.innerHTML += `<option value="${escapeHtml(eq)}">${escapeHtml(traduzirTermoExibicao(eq))}</option>`;
+            });
+
+            renderizarCheckboxesDivisoesPadrao();
+
+            document.getElementById('filtro_edicao_atleta').value = '';
+            resetarFormularioParaNovo();
+            form.style.display = 'block';
+            await atualizarListasAtletasSilenciosamente();
+        } catch (erro) {
+            alert("Error loading meet settings: " + erro.message);
+        }
+    }
+
+    async function atualizarListasAtletasSilenciosamente() {
+        const eventoId = document.getElementById('select_evento').value;
+        if (!eventoId) return;
+
+        try {
+            const { ok, dados } = await fetchSeguro(`/api/inscricoes/evento/${eventoId}`);
+            if (ok && Array.isArray(dados)) {
+                listaInscricoesEvento = dados;
+                renderizarSelectsAtletas();
+            }
+        } catch (e) {
+            console.error("Erro ao atualizar lista de atletas:", e);
+        }
+    }
+
+    function renderizarSelectsAtletas() {
+        const selectModo = document.getElementById('select_modo_atleta');
+        const valorModoAtual = selectModo.value;
+        const termoFiltro = (document.getElementById('filtro_edicao_atleta').value || '').trim().toLowerCase();
+
+        selectModo.innerHTML = '<option value="NOVO">✨ REGISTER NEW LIFTER</option>';
+        listaInscricoesEvento.forEach(a => {
+            try {
+                const cpfStr = a.cpf ? String(a.cpf) : '';
+                if (termoFiltro && !(a.nome || '').toLowerCase().includes(termoFiltro) && !cpfStr.includes(termoFiltro)) {
+                    if (String(a.id) !== String(valorModoAtual)) return;
+                }
+                const equip = a.equipamento_escolhido || 'Raw';
+                const divs = formatarTextoDivisoes(a.divisao_escolhida);
+                const cpfBadge = a.cpf ? ` [CPF/ID: ${formatarCPFBancoParaTela(a.cpf)}]` : '';
+                const catPesoTxt = a.categoria_peso_escolhida === 'Livre' ? 'Open / Unassigned' : `${a.categoria_peso_escolhida}kg`;
+                selectModo.innerHTML += `<option value="${a.id}">✏️ Edit: ${escapeHtml(a.nome || 'Lifter')}${escapeHtml(cpfBadge)} (${escapeHtml(traduzirTermoExibicao(a.modalidade_escolhida))} - ${escapeHtml(traduzirTermoExibicao(equip))} | ${escapeHtml(divs)} | ${escapeHtml(catPesoTxt)})</option>`;
+            } catch (errItem) {
+                console.error("Isolated error rendering edit option:", errItem, a);
+            }
+        });
+
+        if (valorModoAtual && Array.from(selectModo.options).some(o => String(o.value) === String(valorModoAtual))) {
+            selectModo.value = valorModoAtual;
+        }
+
+        const selectCancelar = document.getElementById('select_cancelar_atleta');
+        const valorCancelarAtual = selectCancelar.value;
+        selectCancelar.innerHTML = '<option value="">-- Select a Lifter --</option>';
+        listaInscricoesEvento.forEach(a => {
+            try {
+                const equip = a.equipamento_escolhido || 'Raw';
+                const catPesoTxt = a.categoria_peso_escolhida === 'Livre' ? 'Open / Unassigned' : `${a.categoria_peso_escolhida}kg`;
+                selectCancelar.innerHTML += `<option value="${a.id}">${escapeHtml(a.nome || 'Lifter')} (${escapeHtml(traduzirTermoExibicao(a.modalidade_escolhida))} - ${escapeHtml(traduzirTermoExibicao(equip))} / ${escapeHtml(catPesoTxt)})</option>`;
+            } catch (errCancel) {
+                console.error("Isolated error rendering cancel option:", errCancel, a);
+            }
+        });
+        if (valorCancelarAtual && Array.from(selectCancelar.options).some(o => String(o.value) === String(valorCancelarAtual))) {
+            selectCancelar.value = valorCancelarAtual;
+        }
+    }
+
+    function alternarModoFormulario() {
+        const valor = document.getElementById('select_modo_atleta').value;
+        if (valor === 'NOVO') {
+            resetarFormularioParaNovo();
+            return;
+        }
+
+        const atleta = listaInscricoesEvento.find(a => String(a.id) === String(valor));
+        if (!atleta) return;
+
+        ocultarAlertaCPFExistente();
+        atletaIdVinculadoPorCPF = atleta.atleta_id || null;
+        forcarNovoAtletaMesmoComCPF = false;
+        atletaConflitoCPFDetectado = null;
+
+        document.getElementById('painel_modo').classList.add('editando');
+        document.getElementById('box_importar_historico').style.display = 'none';
+        document.getElementById('titulo_formulario').innerText = `✏️ Editing Registration: ${atleta.nome}`;
+        document.getElementById('btn_salvar_principal').innerText = "Save Lifter Changes";
+        document.getElementById('btn_salvar_principal').style.background = "#f39c12";
+        document.getElementById('btn_cancelar_edicao').style.display = "block";
+
+        document.getElementById('inscricao_id_edicao').value = atleta.id;
+        document.getElementById('versao_edicao').value = atleta.versao || 1;
+
+        document.getElementById('at_nome').value = atleta.nome || '';
+        document.getElementById('at_cpf').value = formatarCPFBancoParaTela(atleta.cpf);
+        document.getElementById('at_nascimento').value = formatarDataBancoParaTela(atleta.data_nascimento);
+        document.getElementById('at_sexo').value = atleta.sexo || '';
+        document.getElementById('at_whatsapp').value = atleta.whatsapp || '';
+        document.getElementById('at_cidade').value = atleta.cidade || '';
+        document.getElementById('at_estado').value = atleta.estado || 'SP';
+        document.getElementById('at_equipe').value = (!atleta.equipe || atleta.equipe === 'Sem Equipe') ? 'Unattached' : atleta.equipe;
+        document.getElementById('at_pcd').checked = Boolean(atleta.pcd);
+        document.getElementById('at_instagram').value = atleta.instagram || '';
+        document.getElementById('at_youtube').value = atleta.youtube || '';
+        document.getElementById('at_outros_social').value = atleta.outros_social || '';
+
+        atualizarSelectPeso(atleta.categoria_peso_escolhida);
+
+        const selMod = document.getElementById('at_modalidade');
+        if (atleta.modalidade_escolhida && !Array.from(selMod.options).some(o => o.value === atleta.modalidade_escolhida)) {
+            selMod.innerHTML += `<option value="${escapeHtml(atleta.modalidade_escolhida)}">${escapeHtml(traduzirTermoExibicao(atleta.modalidade_escolhida))}</option>`;
+        }
+        selMod.value = atleta.modalidade_escolhida;
+        
+        const selEquip = document.getElementById('at_equipamento');
+        const equipAtleta = atleta.equipamento_escolhido || 'Raw';
+        if (!Array.from(selEquip.options).some(o => o.value === equipAtleta)) {
+            selEquip.innerHTML += `<option value="${escapeHtml(equipAtleta)}">${escapeHtml(traduzirTermoExibicao(equipAtleta))}</option>`;
+        }
+        selEquip.value = equipAtleta;
+
+        // Garante que divisões personalizadas do atleta existam na lista de checkboxes ao editar
+        renderizarCheckboxesDivisoesPadrao();
+        const divisoesAtleta = extrairArrayDivisoes(atleta.divisao_escolhida);
+        const contDiv = document.getElementById('container_divisoes_idade');
+        const valoresExistentes = Array.from(document.querySelectorAll('.chk-divisao-idade')).map(c => c.value);
+
+        divisoesAtleta.forEach(divEsp => {
+            if (divEsp && !valoresExistentes.includes(divEsp)) {
+                contDiv.innerHTML += `
+                    <label class="divisao-item">
+                        <input type="checkbox" class="chk-divisao-idade" value="${escapeHtml(divEsp)}">
+                        ${escapeHtml(traduzirTermoExibicao(divEsp))}
+                    </label>
+                `;
+            }
+        });
+
+        document.querySelectorAll('.chk-divisao-idade').forEach(chk => {
+            chk.checked = divisoesAtleta.includes(chk.value);
+        });
+    }
+
+function resetarFormularioParaNovo() {
+        ocultarAlertaCPFExistente();
+        atletaIdVinculadoPorCPF = null;
+        forcarNovoAtletaMesmoComCPF = false;
+        atletaConflitoCPFDetectado = null;
+
+        document.getElementById('select_modo_atleta').value = 'NOVO';
+        document.getElementById('painel_modo').classList.remove('editando');
+        document.getElementById('box_importar_historico').style.display = 'block';
+        document.getElementById('titulo_formulario').innerText = "Personal Information (New Lifter)";
+        document.getElementById('btn_salvar_principal').innerText = "Confirm Registration";
+        document.getElementById('btn_salvar_principal').style.background = "#2ecc71";
+        document.getElementById('btn_cancelar_edicao').style.display = "none";
+
+        document.getElementById('inscricao_id_edicao').value = '';
+        document.getElementById('versao_edicao').value = '';
+
+        document.getElementById('at_nome').value = '';
+        document.getElementById('at_cpf').value = '';
+        document.getElementById('at_nascimento').value = '';
+        document.getElementById('at_sexo').value = 'M';
+        document.getElementById('at_whatsapp').value = '';
+        document.getElementById('at_cidade').value = '';
+        document.getElementById('at_equipe').value = 'Unattached';
+        document.getElementById('at_pcd').checked = false;
+        document.getElementById('at_instagram').value = '';
+        document.getElementById('at_youtube').value = '';
+        document.getElementById('at_outros_social').value = '';
+
+        atualizarSelectPeso('Livre');
+        renderizarCheckboxesDivisoesPadrao();
+    }
+
+    function atualizarSelectPeso(categoriaPreSelecionada = null) {
+        if (!regrasEventoAtual) return;
+        
+        const sexo = document.getElementById('at_sexo').value || 'M';
+        const selPeso = document.getElementById('at_categoria_peso');
+        const valorAnterior = categoriaPreSelecionada !== null ? categoriaPreSelecionada : (selPeso.value || 'Livre');
+        selPeso.innerHTML = '';
+
+        let listaOficial = (sexo === 'F')
+            ? (regrasEventoAtual.categorias_peso_feminino || [])
+            : (regrasEventoAtual.categorias_peso_masculino || []);
+
+        let lista = ['Livre', ...listaOficial.filter(c => c !== 'Livre')];
+
+        if (valorAnterior && !lista.includes(valorAnterior)) {
+            lista.push(valorAnterior);
+        }
+
+        lista.forEach(p => {
+            const label = (p === 'Livre')
+                ? 'Open / Unassigned (No Weight Class / Set at Weigh-in)'
+                : `${escapeHtml(p)} kg`;
+            selPeso.innerHTML += `<option value="${escapeHtml(p)}">${label}</option>`;
+        });
+
+        selPeso.value = lista.includes(valorAnterior) ? valorAnterior : 'Livre';
+    }
+
+    async function salvarInscricao(confirmarCancelarSync = false) {
+        const inscricaoIdEdicao = document.getElementById('inscricao_id_edicao').value;
+        const versaoEdicao = document.getElementById('versao_edicao').value;
+        const divisoesMarcadas = Array.from(document.querySelectorAll('.chk-divisao-idade:checked')).map(c => c.value);
+
+        const nome = document.getElementById('at_nome').value.trim();
+        const cpfDigitos = document.getElementById('at_cpf').value.replace(/\D/g, '');
+        const dataNascTela = document.getElementById('at_nascimento').value.trim();
+        const sexo = document.getElementById('at_sexo').value || 'M';
+        const categoriaPeso = document.getElementById('at_categoria_peso').value || 'Livre';
+
+        if (!nome) {
+            alert("Please enter the lifter's Name to complete the registration.");
+            document.getElementById('at_nome').focus();
+            return;
+        }
+
+        if (cpfDigitos.length > 0 && cpfDigitos.length !== 11) {
+            alert("CPF/ID is optional, but if filled in, it must contain 11 digits.");
+            document.getElementById('at_cpf').focus();
+            return;
+        }
+
+        let dataISO = '';
+        if (dataNascTela) {
+            dataISO = converterDataTelaParaISO(dataNascTela);
+            if (!dataISO) {
+                alert("Please enter a valid Date of Birth in DD/MM/YYYY format (e.g., 15/08/1995), just the 4-digit Year (e.g., 1995), or leave the field blank.");
+                document.getElementById('at_nascimento').focus();
+                return;
+            }
+        }
+
+        const divisoesFinais = divisoesMarcadas.length > 0
+            ? divisoesMarcadas
+            : [regrasEventoAtual?.divisoes_idade?.[0] || 'Open'];
+
+        // VERIFICAÇÃO SEGURA DE CPF EXISTENTE ANTES DE SALVAR NOVO CADASTRO
+        if (!inscricaoIdEdicao && cpfDigitos.length === 11 && !atletaIdVinculadoPorCPF && !forcarNovoAtletaMesmoComCPF) {
+            try {
+                const { ok, dados } = await fetchSeguro(`/api/atletas/verificar_cpf/${cpfDigitos}`);
+                if (ok && dados && dados.encontrado && dados.atleta) {
+                    const atlExistente = dados.atleta;
+                    const mesmoNome = String(atlExistente.nome || '').trim().toLowerCase() === nome.toLowerCase();
+                    if (mesmoNome) {
+                        atletaIdVinculadoPorCPF = atlExistente.id;
+                    } else {
+                        const equipeExistente = (!atlExistente.equipe || atlExistente.equipe === 'Sem Equipe') ? 'Unattached' : atlExistente.equipe;
+                        const desejarPreencher = confirm(
+                            `⚠️ EXISTING CPF/ID WARNING\n\n` +
+                            `The provided CPF/ID (${formatarCPFBancoParaTela(cpfDigitos)}) already belongs to lifter:\n` +
+                            `👉 ${atlExistente.nome} (Team: ${equipeExistente})\n\n` +
+                            `• Click OK if you want to AUTO-FILL the form with "${atlExistente.nome}"'s data to review before saving.\n` +
+                            `• Click CANCEL if this CPF/ID is just a temporary placeholder and you want to continue registering "${nome}" as a new independent lifter (without altering ${atlExistente.nome}'s record).`
+                        );
+
+                        if (desejarPreencher) {
+                            aplicarDadosDeAtletaExistenteNoFormulario(atlExistente);
+                            alert(`Data for "${atlExistente.nome}" has been loaded into the form. Please review the weight class/discipline and click Confirm Registration again.`);
+                            return;
+                        } else {
+                            forcarNovoAtletaMesmoComCPF = true;
+                            ocultarAlertaCPFExistente();
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn("Warning while verifying CPF before submission:", e);
+            }
+        }
+
+        const rawEquipe = document.getElementById('at_equipe').value.trim();
+        const equipeParaBanco = (!rawEquipe || rawEquipe.toLowerCase() === 'unattached') ? 'Sem Equipe' : rawEquipe;
+
+        const payload = {
+            evento_id: document.getElementById('select_evento').value,
+            nome: nome,
+            cpf: cpfDigitos || null,
+            data_nascimento: dataISO,
+            sexo: sexo,
+            whatsapp: document.getElementById('at_whatsapp').value.trim(),
+            cidade: document.getElementById('at_cidade').value.trim(),
+            estado: document.getElementById('at_estado').value,
+            equipe: equipeParaBanco,
+            pcd: document.getElementById('at_pcd').checked,
+            instagram: document.getElementById('at_instagram').value.trim(),
+            youtube: document.getElementById('at_youtube').value.trim(),
+            outros_social: document.getElementById('at_outros_social').value.trim(),
+            modalidade_escolhida: document.getElementById('at_modalidade').value || 'Full Power',
+            equipamento_escolhido: document.getElementById('at_equipamento').value || 'Raw',
+            divisao_escolhida: divisoesFinais,
+            categoria_peso_escolhida: categoriaPeso,
+            atleta_id_existente: atletaIdVinculadoPorCPF || undefined,
+            forcar_novo_atleta: forcarNovoAtletaMesmoComCPF || undefined,
+            confirmar_cancelar_sync: confirmarCancelarSync ? true : undefined,
+            versao: versaoEdicao ? Number(versaoEdicao) : undefined
+        };
+
+        const url = inscricaoIdEdicao ? `/api/inscricoes/${inscricaoIdEdicao}` : '/api/inscricoes';
+        const metodo = inscricaoIdEdicao ? 'PUT' : 'POST';
+
+        const btnSalvar = document.getElementById('btn_salvar_principal');
+        btnSalvar.disabled = true;
+        btnSalvar.innerText = "Saving...";
+
+        try {
+            const { status, ok, dados: retorno } = await fetchSeguro(url, {
+                method: metodo,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (status === 409 && retorno.requer_confirmacao_limite_nuvem) {
+                const modal = document.getElementById('modal_aviso_limite_nuvem');
+                document.getElementById('texto_modal_limite_nuvem').innerText =
+                    retorno.mensagem ||
+                    "Registering a new lifter on the offline platform will terminate cloud synchronization. Remove a registration or an inactive meet to register more lifters without losing synchronization.";
+                modal.style.display = 'flex';
+
+                document.getElementById('btn_modal_limite_cancelar').onclick = () => {
+                    modal.style.display = 'none';
+                };
+                document.getElementById('btn_modal_limite_confirmar').onclick = async () => {
+                    modal.style.display = 'none';
+                    await salvarInscricao(true);
+                };
+                return;
+            }
+            
+            if (status === 409 && retorno.conflito) {
+                alert(retorno.erro);
+                await atualizarListasAtletasSilenciosamente();
+                alternarModoFormulario();
+                return;
+            }
+
+            if (ok && retorno.sucesso) {
+                if (retorno.aviso_duplicado) {
+                    alert("This lifter was already registered in this exact discipline/weight class (double-click prevented).");
+                } else {
+                    alert(inscricaoIdEdicao ? "Lifter details updated successfully!" : "Lifter registered successfully!");
+                }
+                await atualizarListasAtletasSilenciosamente();
+                resetarFormularioParaNovo();
+                document.getElementById('at_nome').focus();
+            } else {
+                alert("Error saving: " + (retorno.erro || "Unknown failure."));
+            }
+        } catch (erro) {
+            alert("Error communicating with the server. Please check your connection and try again.");
+        } finally {
+            btnSalvar.disabled = false;
+            btnSalvar.innerText = inscricaoIdEdicao ? "Save Lifter Changes" : "Confirm Registration";
+        }
+    }
+
+    async function cancelarInscricao() {
+        const inscricaoId = document.getElementById('select_cancelar_atleta').value;
+        
+        if (!inscricaoId) {
+            alert("Please select a lifter from the red list.");
+            return;
+        }
+
+        if (!confirm("WARNING: Are you sure you want to REMOVE this lifter from the meet? They will be moved to Canceled Registrations.")) {
+            return;
+        }
+
+        const btnArquivar = document.getElementById('btn_arquivar_atleta');
+        btnArquivar.disabled = true;
+        btnArquivar.innerText = "Removing...";
+
+        try {
+            const { ok, dados: retorno } = await fetchSeguro(`/api/inscricoes/${inscricaoId}/arquivar`, {
+                method: 'PUT'
+            });
+            
+            if (ok && retorno.sucesso) {
+                alert("Registration canceled successfully! The lifter has been removed from the lists.");
+                await atualizarListasAtletasSilenciosamente();
+                resetarFormularioParaNovo();
+            } else {
+                alert("Error removing: " + (retorno.erro || "Failed to archive lifter."));
+            }
+        } catch (erro) {
+            alert("Communication error while trying to remove lifter.");
+        } finally {
+            btnArquivar.disabled = false;
+            btnArquivar.innerText = "Remove Lifter from Meet";
+        }
+    }
+</script>
+
+</body>
+</html>

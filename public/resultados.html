@@ -1,0 +1,1699 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resultados Oficiais - Powerlifting</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f4f7f6; color: #333; margin: 0; padding: 20px; }
+        .container { max-width: 1320px; margin: 0 auto; background: #fff; padding: 30px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #2c3e50; text-transform: uppercase; border-bottom: 3px solid #3498db; padding-bottom: 10px; margin-top: 0; }
+        
+        .barra-topo-acoes { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; border-bottom: 3px solid #3498db; padding-bottom: 12px; margin-bottom: 20px; }
+        .grupo-botoes-export { display: flex; gap: 10px; flex-wrap: wrap; }
+        .btn-acao-topo { border: none; padding: 10px 16px; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 13.5px; color: white; display: inline-flex; align-items: center; gap: 6px; transition: opacity 0.2s; }
+        .btn-acao-topo:hover { opacity: 0.9; }
+        .btn-csv-ranking { background: #16a085; }
+        .btn-csv-completo { background: #27ae60; }
+        .btn-imprimir-resultados { background: #2c3e50; }
+        .btn-enviar-acervo { background: #2563EB; }
+        .btn-enviar-acervo:disabled { background: #95a5a6; cursor: not-allowed; }
+
+        .filtros { display: flex; gap: 14px; background: #ecf0f1; padding: 20px; border-radius: 8px; margin-bottom: 25px; flex-wrap: wrap; }
+        .bloco-filtro { flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 5px; }
+        .bloco-filtro label { font-size: 12px; font-weight: bold; color: #555; text-transform: uppercase; }
+        .filtros select { width: 100%; padding: 10px; font-size: 14px; border-radius: 5px; border: 1px solid #bdc3c7; outline: none; font-weight: bold; background: white; box-sizing: border-box; color: #2c3e50; }
+        .filtros select.filtro-bateria-ativo { border: 2px solid #e67e22; background: #fffdf9; color: #d35400; }
+
+        .banner-bateria-ativa { width: 100%; background: #fff8e1; border: 1px solid #f39c12; border-left: 5px solid #e67e22; color: #7e5109; padding: 10px 14px; border-radius: 5px; font-size: 13.5px; font-weight: bold; display: none; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; box-sizing: border-box; }
+        .btn-limpar-bateria { background: #e67e22; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; }
+
+        .opcoes-regras { width: 100%; display: flex; gap: 20px; align-items: center; flex-wrap: wrap; margin-top: 5px; padding-top: 14px; border-top: 1px solid #bdc3c7; }
+        .opcoes-regras label { cursor: pointer; display: flex; align-items: center; gap: 7px; font-weight: bold; color: #2c3e50; font-size: 13.5px; }
+
+        .tabela-resultados { width: 100%; border-collapse: collapse; margin-top: 12px; margin-bottom: 35px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); font-size: 14px; }
+        .tabela-resultados th, .tabela-resultados td { padding: 12px 10px; text-align: center; border-bottom: 1px solid #ddd; vertical-align: middle; }
+        .tabela-resultados th { background: #34495e; color: #fff; text-transform: uppercase; font-size: 13px; }
+        .tabela-resultados tr:hover { background: #f9f9f9; }
+        
+        /* Formatação das Posições */
+        .pos-1 { font-weight: bold; color: #f1c40f; font-size: 20px; text-shadow: 1px 1px 0px #000; }
+        .pos-2 { font-weight: bold; color: #95a5a6; font-size: 18px; }
+        .pos-3 { font-weight: bold; color: #d35400; font-size: 18px; }
+        
+        .nome-atleta { font-weight: bold; font-size: 15px; text-align: left !important; color: #2c3e50; text-transform: uppercase; }
+        .maior-pedida { font-size: 18px; font-weight: bold; color: #2ecc71; background: rgba(46, 204, 113, 0.12); border-radius: 5px; padding: 5px 10px; display: inline-block; }
+        .badge-coef { font-size: 15px; font-weight: bold; color: #2980b9; background: rgba(52, 152, 219, 0.12); border-radius: 5px; padding: 4px 8px; display: inline-block; }
+        .badge-sem-total { font-size: 13px; font-weight: bold; color: #c0392b; background: #fadbd8; border-radius: 5px; padding: 4px 8px; display: inline-block; }
+        .badge-em-andamento { font-size: 13px; font-weight: bold; color: #d35400; background: #fff3cd; border: 1px solid #f39c12; border-radius: 5px; padding: 4px 8px; display: inline-block; }
+        
+        /* Luzes dos Árbitros */
+        .luzes-box { display: flex; justify-content: center; gap: 3px; margin-top: 4px; }
+        .bolinha { width: 9px; height: 9px; border-radius: 50%; border: 1px solid #333; }
+        .branca { background: #fff; }
+        .vermelha { background: #e74c3c; border-color: #c0392b; }
+        
+        .peso-invalido { text-decoration: line-through; color: #e74c3c; opacity: 0.75; }
+        .peso-valido { font-weight: bold; color: #333; }
+
+        /* Mini grade de tentativas dentro da tabela Full Power / Push-Pull */
+        .mini-tentativas { display: flex; justify-content: center; gap: 6px; flex-wrap: wrap; }
+        .mini-item { background: #f8f9fa; border: 1px solid #e2e6ea; border-radius: 4px; padding: 4px 6px; min-width: 48px; font-size: 12px; }
+        .mini-item.extra { border-color: #f39c12; background: #fff8e1; }
+        .melhor-sub { font-size: 12px; font-weight: bold; color: #27ae60; margin-top: 4px; }
+        
+        .titulo-secao { background: #2c3e50; color: white; padding: 10px 15px; border-radius: 5px; margin-top: 30px; text-transform: uppercase; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+        .titulo-secao.overall { background: linear-gradient(90deg, #8e44ad, #2c3e50); border-left: 6px solid #f1c40f; }
+        .titulo-secao.bateria-destaque { background: linear-gradient(90deg, #d35400, #2c3e50); border-left: 6px solid #f39c12; }
+
+        @media print {
+            nav, .filtros, .grupo-botoes-export, #titulo_visao_geral_completa, #area_geral { display: none !important; }
+            body { background: #fff; padding: 0; }
+            .container { box-shadow: none; max-width: 100%; padding: 0; }
+            .titulo-secao { background: #eee !important; color: #000 !important; border: 1px solid #000; }
+            .tabela-resultados th { background: #ddd !important; color: #000 !important; }
+        }
+    </style>
+</head>
+<body>
+<nav style="background: #2c3e50; padding: 15px; margin-bottom: 20px; display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+    <a href="/" style="color: white; text-decoration: none; font-weight: bold;">🏠 Início</a>
+    <a href="/criar-evento" style="color: #bdc3c7; text-decoration: none;">1. Evento</a>
+    <a href="/inscricao" style="color: #bdc3c7; text-decoration: none;">2. Inscrição</a>
+    <a href="/baterias" style="color: #bdc3c7; text-decoration: none;">3. Baterias</a>
+    <a href="/pesagem" style="color: #bdc3c7; text-decoration: none;">4. Pesagem</a>
+    <a href="/admin" style="color: #bdc3c7; text-decoration: none;">5. Mesa</a>
+    <a href="/display" style="color: #2ecc71; text-decoration: none;">6. Telão</a>
+    <a href="/resultados" style="color: #f1c40f; text-decoration: none; font-weight: bold;">7. Resultados 🏆</a>
+    <a href="/nuvem" style="color: #1abc9c; text-decoration: none; font-weight: bold;">☁️ Nuvem</a>
+</nav>
+
+<div class="container">
+    <div class="barra-topo-acoes">
+        <h1 style="border: none; margin: 0; padding: 0;">🏆 Resultados Oficiais</h1>
+        <div class="grupo-botoes-export">
+            <button class="btn-acao-topo btn-enviar-acervo" id="btn_enviar_acervo_bp" onclick="enviarResultadosParaBrasilPowerlifting()" title="Envia os resultados finais desta competição para o acervo público permanente do site Brasil Powerlifting">
+                🌐 Enviar resultados da Competição para Brasil Powerlifting
+            </button>
+            <button class="btn-acao-topo btn-csv-ranking" onclick="exportarRankingAtualCSV()" title="Baixa um arquivo .CSV (compatível com Excel) contendo exatamente as tabelas e classificações filtradas na tela">
+                📥 Baixar Ranking da Tela (.CSV)
+            </button>
+            <button class="btn-acao-topo btn-csv-completo" onclick="exportarBaseCompletaCSV()" title="Baixa uma planilha completa .CSV com todos os atletas do campeonato, baterias, tentativas de Agachamento/Supino/Terra, Totais, DOTS e Wilks para filtrar livremente no Excel">
+                📊 Baixar Planilha Completa (.CSV)
+            </button>
+            <button class="btn-acao-topo btn-imprimir-resultados" onclick="window.print()">
+                🖨️ Imprimir / Salvar PDF
+            </button>
+        </div>
+    </div>
+
+    <div class="filtros">
+        <div class="bloco-filtro">
+            <label>1. Campeonato</label>
+            <select id="select_evento" onchange="aoTrocarEvento()">
+                <option value="">-- Carregando Eventos... --</option>
+            </select>
+        </div>
+
+        <div class="bloco-filtro">
+            <label>2. Modalidade / Modo de Exibição</label>
+            <select id="select_visao" onchange="aoMudarModoVisao()">
+                <option value="MOVIMENTO" selected>🏋️ Todos os Movimentos Separados (Agacho / Supino / Terra)</option>
+                <option value="SUPINO">🔥 Apenas Supino (Por Categoria)</option>
+                <option value="AGACHAMENTO">🦵 Apenas Agachamento (Por Categoria)</option>
+                <option value="TERRA">⛓️ Apenas Levantamento Terra (Por Categoria)</option>
+                <option value="PUSH_PULL">💪 Total Push-Pull (Supino + Terra)</option>
+                <option value="FULL_POWER">🏆 Total Full Power (Agachamento + Supino + Terra)</option>
+                <option value="OVERALL_MOVIMENTO">👑 Best Lifter / Overall — Por Movimento</option>
+                <option value="OVERALL_TOTAL">👑 Best Lifter / Overall — Totais (Full Power e Push-Pull)</option>
+            </select>
+        </div>
+
+        <div class="bloco-filtro">
+            <label>3. Filtrar por Bateria (Premiação por Categoria da Bateria)</label>
+            <select id="select_bateria" onchange="aoMudarFiltroBateria()">
+                <option value="TODAS">Todas as Baterias</option>
+            </select>
+        </div>
+
+        <div class="bloco-filtro">
+            <label>4. Sexo</label>
+            <select id="select_sexo" onchange="aoMudarSelectSexo()">
+                <option value="TODOS">Todos (Masc. e Fem. Separados)</option>
+                <option value="M">♂️ Apenas Masculino</option>
+                <option value="F">♀️ Apenas Feminino</option>
+                <option value="MISTO">⚡ Misto Unificado (Juntar Masc. e Fem.)</option>
+            </select>
+        </div>
+
+        <div class="bloco-filtro">
+            <label>5. Equipamento</label>
+            <select id="select_equipamento" onchange="processarDados()">
+                <option value="TODOS">Todos os Equipamentos</option>
+            </select>
+        </div>
+
+        <div class="bloco-filtro">
+            <label>6. Categoria / Divisão / Peso</label>
+            <select id="select_categoria" onchange="renderizarTelas()">
+                <option value="TODAS">Todas as Categorias</option>
+            </select>
+        </div>
+
+        <div class="bloco-filtro">
+            <label>7. Critério de Ordem / Desempate</label>
+            <select id="select_criterio" onchange="processarDados()">
+                <option value="TOTAL_KG">Maior Carga / Total (kg) + Menor Peso Corp.</option>
+                <option value="DOTS">Coeficiente DOTS (Padrão Oficial Moderno)</option>
+                <option value="WILKS">Coeficiente Wilks (Clássico)</option>
+                <option value="RELATIVO">Divisão Simples: Carga ÷ Peso Corp.</option>
+            </select>
+        </div>
+
+        <div class="banner-bateria-ativa" id="banner_bateria_ativa">
+            <span id="texto_banner_bateria"></span>
+            <button type="button" class="btn-limpar-bateria" onclick="limparFiltroBateria()">🔄 Mostrar Todas as Baterias</button>
+        </div>
+        
+        <div class="opcoes-regras">
+            <label title="Se marcado, atletas inscritos no Full Power que executaram Supino e Terra também aparecem na disputa de Total Push-Pull (Supino + Terra). Desmarque se quiser exibir apenas quem se inscreveu exclusivamente como Push-Pull.">
+                <input type="checkbox" id="check_incluir_fullpower_no_pushpull" checked onchange="processarDados()" style="width: 17px; height: 17px;"> 
+                No Total Push-Pull, incluir também atletas do Full Power (Supino + Terra)
+            </label>
+
+            <label title="Se marcado, atletas de Full Power ou Push-Pull que zerarem um dos movimentos ainda terão seus outros levantamentos válidos somados no Total.">
+                <input type="checkbox" id="check_permitir_total_incompleto" onchange="processarDados()" style="width: 17px; height: 17px;"> 
+                Contabilizar Total mesmo se o atleta zerar um movimento (Modo Flexível / Amador)
+            </label>
+
+            <label title="Se marcado, eventuais 4ªs tentativas (Baterias Avulsas de PR / Desempate) também contam para a Melhor Marca e Total do atleta.">
+                <input type="checkbox" id="check_contabilizar_tentativa_extra" checked onchange="processarDados()" style="width: 17px; height: 17px;"> 
+                Contabilizar 4ª+ Tentativa (Bateria Avulsa / PR) na Melhor Marca
+            </label>
+
+            <label title="Agrupa todas as divisões de idade (Júnior, Open, Master...) em um único pódio quando estiver no modo Best Lifter / Overall.">
+                <input type="checkbox" id="check_unificar_idades_overall" onchange="processarDados()" style="width: 17px; height: 17px;"> 
+                No Overall, unificar todas as Divisões de Idade
+            </label>
+        </div>
+    </div>
+
+    <div id="area_especifica"></div>
+    
+    <h2 id="titulo_visao_geral_completa" style="text-align: center; color: #7f8c8d; margin-top: 60px; border-top: 1px solid #ddd; padding-top: 20px;">VISÃO GERAL COMPLETA DO CAMPEONATO</h2>
+    <div id="area_geral"></div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+    const socket = io({ reconnection: true });
+    let dadosBrutos = [];
+    let mapaInscricoesGlobal = {};
+    let tabelasProcessadas = [];
+    let timerDebounceResultados = null;
+    let tokenReqResultados = 0;
+
+    const NOMES_MOVIMENTOS = {
+        agachamento: 'Agachamento',
+        supino: 'Supino',
+        terra: 'Levantamento Terra'
+    };
+
+    window.onerror = function(msg, url, lineNo) {
+        console.error("🛡️ [AIRBAG RESULTADOS]:", msg, "Linha:", lineNo);
+        return false;
+    };
+
+    function escapeHtml(texto) {
+        if (texto === undefined || texto === null) return '';
+        return String(texto)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    async function fetchSeguro(url, timeoutMs = 8000) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            const res = await fetch(url, { signal: controller.signal });
+            clearTimeout(timer);
+            const dados = await res.json().catch(() => ([]));
+            if (!res.ok) throw new Error(dados.erro || `Erro HTTP ${res.status}`);
+            return dados;
+        } catch (erro) {
+            clearTimeout(timer);
+            throw erro;
+        }
+    }
+
+    function agendarAtualizacaoResultados(info = null) {
+        const evId = document.getElementById('select_evento').value;
+        if (!evId) return;
+        if (info && info.evento_id && String(info.evento_id) !== String(evId)) return;
+
+        clearTimeout(timerDebounceResultados);
+        timerDebounceResultados = setTimeout(() => {
+            carregarResultados();
+        }, 120);
+    }
+
+    socket.on('connect', () => agendarAtualizacaoResultados());
+    socket.on('resultado_luzes', () => agendarAtualizacaoResultados());
+    socket.on('fila_atualizada', (info) => agendarAtualizacaoResultados(info));
+    socket.on('dados_atletas_atualizados', (info) => agendarAtualizacaoResultados(info));
+
+    function aoTrocarEvento() {
+        document.getElementById('select_bateria').value = 'TODAS';
+        document.getElementById('select_categoria').value = 'TODAS';
+        carregarResultados();
+    }
+
+    function aoMudarModoVisao() {
+        const modoVisao = document.getElementById('select_visao').value;
+        const selCrit = document.getElementById('select_criterio');
+        if ((modoVisao === 'OVERALL_MOVIMENTO' || modoVisao === 'OVERALL_TOTAL') && selCrit.value === 'TOTAL_KG') {
+            selCrit.value = 'DOTS';
+        }
+        processarDados();
+    }
+
+    function aoMudarFiltroBateria() {
+        const selBat = document.getElementById('select_bateria');
+        const ativo = selBat.value !== 'TODAS';
+        selBat.classList.toggle('filtro-bateria-ativo', ativo);
+        document.getElementById('select_categoria').value = 'TODAS';
+        processarDados();
+    }
+
+    function limparFiltroBateria() {
+        const selBat = document.getElementById('select_bateria');
+        selBat.value = 'TODAS';
+        selBat.classList.remove('filtro-bateria-ativo');
+        processarDados();
+    }
+
+    function aoMudarSelectSexo() {
+        processarDados();
+    }
+
+    function extrairDivisoesIdade(divisaoSalva) {
+        if (!divisaoSalva) return ['Open'];
+        if (Array.isArray(divisaoSalva)) return divisaoSalva.length > 0 ? divisaoSalva : ['Open'];
+        const str = String(divisaoSalva).trim();
+        if (str.startsWith('[')) {
+            try {
+                const parsed = JSON.parse(str);
+                return Array.isArray(parsed) && parsed.length > 0 ? parsed : ['Open'];
+            } catch (e) {
+                return [str];
+            }
+        }
+        return [str];
+    }
+
+    function formatarCategoriaPeso(catBruta) {
+        const limpo = String(catBruta || '').trim();
+        if (!limpo || limpo.toLowerCase() === 'livre' || limpo.toLowerCase() === 'peso livre') {
+            return 'Peso Livre';
+        }
+        if (limpo.toLowerCase().endsWith('kg')) {
+            return limpo;
+        }
+        return `${limpo}kg`;
+    }
+
+    function obterMovimentosRequeridosDaModalidade(modalidade) {
+        const mod = String(modalidade || 'Full Power').trim();
+        if (mod === 'Agachamento Solo') return ['agachamento'];
+        if (mod === 'Supino Solo') return ['supino'];
+        if (mod === 'Terra Solo') return ['terra'];
+        if (mod === 'Push-Pull') return ['supino', 'terra'];
+        return ['agachamento', 'supino', 'terra'];
+    }
+
+    function extrairPesoNumericoParaOrdem(textoCategoria) {
+        const str = String(textoCategoria || '');
+        const match = str.match(/([+-]?\s*\d+(?:[.,]\d+)?)\s*kg/i);
+        if (!match) return 9999;
+        const bruto = match[1].replace(/\s+/g, '').replace(',', '.');
+        const ehMais = bruto.startsWith('+');
+        const valor = Math.abs(parseFloat(bruto));
+        if (isNaN(valor)) return 9999;
+        return ehMais ? 1000 + valor : valor;
+    }
+
+    function compararChavesDeCategoria(a, b) {
+        const partesA = String(a).split(' | ');
+        const partesB = String(b).split(' | ');
+        const prefixoA = partesA.slice(0, -1).join(' | ');
+        const prefixoB = partesB.slice(0, -1).join(' | ');
+        if (prefixoA !== prefixoB) return prefixoA.localeCompare(prefixoB, 'pt-BR');
+        return extrairPesoNumericoParaOrdem(a) - extrairPesoNumericoParaOrdem(b);
+    }
+
+    // ============================================================================
+    // CÁLCULO DE COEFICIENTES (DOTS, WILKS E DIVISÃO SIMPLES PELO PESO CORPORAL)
+    // ============================================================================
+
+    function calcularDOTS(totalKg, pesoCorporalKg, sexo) {
+        const total = Number(totalKg) || 0;
+        const bw = Number(pesoCorporalKg) || 0;
+        if (total <= 0 || bw <= 0 || bw >= 500) return 0;
+
+        const isFem = String(sexo).toUpperCase() === 'F';
+        const w = isFem ? Math.min(Math.max(bw, 40), 150) : Math.min(Math.max(bw, 40), 210);
+
+        const A = isFem ? -0.0000010706 : -0.0000010930;
+        const B = isFem ? 0.0005158568 : 0.0007391293;
+        const C = isFem ? -0.1126655495 : -0.1918759221;
+        const D = isFem ? 13.6175032 : 24.0900756;
+        const E = isFem ? -57.96288 : -307.75076;
+
+        const denom = (A * Math.pow(w, 4)) + (B * Math.pow(w, 3)) + (C * Math.pow(w, 2)) + (D * w) + E;
+        if (denom <= 0) return 0;
+        return total * (500 / denom);
+    }
+
+    function calcularWilks(totalKg, pesoCorporalKg, sexo) {
+        const total = Number(totalKg) || 0;
+        const bw = Number(pesoCorporalKg) || 0;
+        if (total <= 0 || bw <= 0 || bw >= 500) return 0;
+
+        const isFem = String(sexo).toUpperCase() === 'F';
+        const w = isFem ? Math.min(Math.max(bw, 40), 150) : Math.min(Math.max(bw, 40), 205);
+
+        const a = isFem ? 594.31747775582 : -216.0475144;
+        const b = isFem ? -27.23842536447 : 16.2606339;
+        const c = isFem ? 0.82112226871 : -0.002388645;
+        const d = isFem ? -0.00930733913 : -0.00113732;
+        const e = isFem ? 0.00004731582 : 0.00000701863;
+        const f = isFem ? -0.00000009054 : -0.00000001291;
+
+        const denom = a + (b * w) + (c * Math.pow(w, 2)) + (d * Math.pow(w, 3)) + (e * Math.pow(w, 4)) + (f * Math.pow(w, 5));
+        if (denom <= 0) return 0;
+        return total * (500 / denom);
+    }
+
+    function calcularDivisaoSimples(totalKg, pesoCorporalKg) {
+        const total = Number(totalKg) || 0;
+        const bw = Number(pesoCorporalKg) || 0;
+        if (total <= 0 || bw <= 0 || bw >= 500) return 0;
+        return total / bw;
+    }
+
+    function calcularPontuacaoAtleta(marcaKg, pesoCorporalKg, sexo, criterio) {
+        if (criterio === 'WILKS') return calcularWilks(marcaKg, pesoCorporalKg, sexo);
+        if (criterio === 'RELATIVO') return calcularDivisaoSimples(marcaKg, pesoCorporalKg);
+        return calcularDOTS(marcaKg, pesoCorporalKg, sexo);
+    }
+
+    function obterRotuloColunaCoeficiente(criterio) {
+        if (criterio === 'WILKS') return 'Pontos Wilks';
+        if (criterio === 'RELATIVO') return 'Índice Peso Corp.';
+        return 'Pontos DOTS';
+    }
+
+    function obterRotuloCriterioOrdenacao(criterio) {
+        if (criterio === 'TOTAL_KG') return 'Maior Carga / Total (kg) + Menor Peso Corp.';
+        if (criterio === 'WILKS') return 'Pontos Wilks';
+        if (criterio === 'RELATIVO') return 'Índice Peso Corp.';
+        return 'Pontos DOTS';
+    }
+
+    function formatarValorCoeficiente(valor, criterio) {
+        if (!valor || valor <= 0 || !Number.isFinite(valor)) return '--';
+        if (criterio === 'RELATIVO') return `${valor.toFixed(2)}x PC`;
+        return `${valor.toFixed(2)} pts`;
+    }
+
+    window.onload = async () => {
+        try {
+            const eventos = await fetchSeguro('/api/eventos');
+            const selectEvento = document.getElementById('select_evento');
+            let html = '<option value="">-- Selecione um Evento --</option>';
+            if (Array.isArray(eventos)) {
+                eventos.forEach(e => {
+                    html += `<option value="${e.id}">${escapeHtml(e.nome)}</option>`;
+                });
+            }
+            selectEvento.innerHTML = html;
+        } catch (e) {
+            console.error("Erro ao carregar eventos:", e);
+        }
+    };
+
+    async function carregarResultados() {
+        const evId = document.getElementById('select_evento').value;
+        if (!evId) return;
+
+        const meuToken = ++tokenReqResultados;
+        try {
+            const resposta = await fetchSeguro(`/api/resultados/${evId}`);
+            if (meuToken !== tokenReqResultados) return;
+
+            dadosBrutos = Array.isArray(resposta) ? resposta : [];
+
+            // 1. Popula Filtro de Equipamentos
+            const selEquip = document.getElementById('select_equipamento');
+            const equipAntes = selEquip.value;
+            const equipamentosSet = new Set();
+            dadosBrutos.forEach(t => equipamentosSet.add(t.equipamento_escolhido || 'Raw'));
+
+            let htmlEquip = '<option value="TODOS">Todos os Equipamentos</option>';
+            Array.from(equipamentosSet).sort().forEach(eq => {
+                htmlEquip += `<option value="${escapeHtml(eq)}">${escapeHtml(eq)}</option>`;
+            });
+            selEquip.innerHTML = htmlEquip;
+            if (equipAntes && Array.from(selEquip.options).some(o => o.value === equipAntes)) {
+                selEquip.value = equipAntes;
+            }
+
+            // 2. Popula Filtro de Baterias (separadas por movimento)
+            popularFiltroBaterias();
+
+            processarDados();
+        } catch (erro) {
+            console.error("Erro ao carregar resultados:", erro.message);
+        }
+    }
+
+    function popularFiltroBaterias() {
+        const selBat = document.getElementById('select_bateria');
+        const batAntes = selBat.value;
+
+        const mapaBateriasPorMov = {
+            agachamento: new Map(),
+            supino: new Map(),
+            terra: new Map()
+        };
+        let multiPlataformas = false;
+
+        dadosBrutos.forEach(t => {
+            ['agachamento', 'supino', 'terra'].forEach(mov => {
+                const nomeBat = t[`bateria_${mov}`] ? String(t[`bateria_${mov}`]).trim() : '';
+                const plat = Number(t[`plataforma_${mov}`]) || 1;
+                if (plat > 1) multiPlataformas = true;
+                if (nomeBat) {
+                    const chave = `${mov}||${nomeBat}||${plat}`;
+                    if (!mapaBateriasPorMov[mov].has(chave)) {
+                        mapaBateriasPorMov[mov].set(chave, { mov, nomeBat, plat });
+                    }
+                }
+            });
+        });
+
+        let htmlBat = '<option value="TODAS">Todas as Baterias</option>';
+        ['agachamento', 'supino', 'terra'].forEach(mov => {
+            const lista = Array.from(mapaBateriasPorMov[mov].values());
+            if (lista.length === 0) return;
+
+            lista.sort((a, b) => {
+                if (a.plat !== b.plat) return a.plat - b.plat;
+                return a.nomeBat.localeCompare(b.nomeBat, 'pt-BR');
+            });
+
+            htmlBat += `<optgroup label="🏋️ ${NOMES_MOVIMENTOS[mov]}">`;
+            lista.forEach(item => {
+                const chave = `${item.mov}||${item.nomeBat}||${item.plat}`;
+                const platTxt = multiPlataformas ? ` (Plat. ${item.plat})` : '';
+                htmlBat += `<option value="${escapeHtml(chave)}">${escapeHtml(NOMES_MOVIMENTOS[item.mov])} — ${escapeHtml(item.nomeBat)}${escapeHtml(platTxt)}</option>`;
+            });
+            htmlBat += `</optgroup>`;
+        });
+
+        selBat.innerHTML = htmlBat;
+        if (batAntes && Array.from(selBat.options).some(o => o.value === batAntes)) {
+            selBat.value = batAntes;
+        } else {
+            selBat.value = 'TODAS';
+            selBat.classList.remove('filtro-bateria-ativo');
+        }
+    }
+
+    function atletaParticipaDoMovimento(insc, mov) {
+        const dadosMov = insc.movimentos[mov];
+        if (!dadosMov) return false;
+        if (dadosMov.qtdConcluidas > 0 || dadosMov.qtdPendentes > 0) return true;
+        const movsRequeridos = obterMovimentosRequeridosDaModalidade(insc.modalidade);
+        return movsRequeridos.includes(mov) && Boolean(dadosMov.bateria);
+    }
+
+    function processarDados() {
+        const modoVisao = document.getElementById('select_visao').value;
+        const filtroBateriaVal = document.getElementById('select_bateria').value;
+        const filtroSexo = document.getElementById('select_sexo').value;
+        const mistoAtivado = (filtroSexo === 'MISTO');
+        const incluirFullPowerNoPushPull = document.getElementById('check_incluir_fullpower_no_pushpull').checked;
+        const permitirTotalIncompleto = document.getElementById('check_permitir_total_incompleto').checked;
+        const contabilizarTentativaExtra = document.getElementById('check_contabilizar_tentativa_extra').checked;
+        const unificarIdadesOverall = document.getElementById('check_unificar_idades_overall').checked;
+        const filtroEquip = document.getElementById('select_equipamento').value;
+        const criterio = document.getElementById('select_criterio').value;
+
+        tabelasProcessadas = [];
+        mapaInscricoesGlobal = {};
+
+        // 1. Consolida cada Inscrição Única
+        dadosBrutos.forEach(t => {
+            try {
+                const equip = t.equipamento_escolhido || 'Raw';
+                const idInsc = t.inscricao_id || `${t.nome}_${t.modalidade_escolhida}`;
+
+                if (!mapaInscricoesGlobal[idInsc]) {
+                    mapaInscricoesGlobal[idInsc] = {
+                        inscricao_id: idInsc,
+                        nome: t.nome || 'Atleta',
+                        cpf: t.cpf || '',
+                        sexo: t.sexo === 'F' ? 'F' : 'M',
+                        pcd: Boolean(t.pcd),
+                        instagram: t.instagram || '',
+                        equipe: t.equipe || '',
+                        modalidade: t.modalidade_escolhida || 'Full Power',
+                        equipamento: equip,
+                        divisoes: extrairDivisoesIdade(t.divisao_escolhida),
+                        categoriaPeso: formatarCategoriaPeso(t.categoria_peso_escolhida),
+                        pesoCorporal: Number(t.peso_corporal_oficial) > 0 ? Number(t.peso_corporal_oficial) : 999,
+                        numeroLote: Number(t.numero_lote) || 99999,
+                        movimentos: {
+                            agachamento: {
+                                bateria: t.bateria_agachamento ? String(t.bateria_agachamento).trim() : '',
+                                plataforma: Number(t.plataforma_agachamento) || 1,
+                                tentativas: [null, null, null],
+                                tentativasExtras: [],
+                                maiorValida: 0,
+                                qtdConcluidas: 0,
+                                qtdPendentes: t.pendentes_agachamento !== undefined ? Number(t.pendentes_agachamento) : 0
+                            },
+                            supino: {
+                                bateria: t.bateria_supino ? String(t.bateria_supino).trim() : '',
+                                plataforma: Number(t.plataforma_supino) || 1,
+                                tentativas: [null, null, null],
+                                tentativasExtras: [],
+                                maiorValida: 0,
+                                qtdConcluidas: 0,
+                                qtdPendentes: t.pendentes_supino !== undefined ? Number(t.pendentes_supino) : 0
+                            },
+                            terra: {
+                                bateria: t.bateria_terra ? String(t.bateria_terra).trim() : '',
+                                plataforma: Number(t.plataforma_terra) || 1,
+                                tentativas: [null, null, null],
+                                tentativasExtras: [],
+                                maiorValida: 0,
+                                qtdConcluidas: 0,
+                                qtdPendentes: t.pendentes_terra !== undefined ? Number(t.pendentes_terra) : 0
+                            }
+                        }
+                    };
+                }
+
+                if (!t.movimento || !t.numero_tentativa) return;
+
+                const mov = t.movimento;
+                const numTent = Number(t.numero_tentativa) || 1;
+                const idx = numTent - 1;
+                const movObj = mapaInscricoesGlobal[idInsc].movimentos[mov];
+                if (!movObj) return;
+
+                if (idx >= 0 && idx <= 2) {
+                    if (!movObj.tentativas[idx]) {
+                        movObj.tentativas[idx] = t;
+                        movObj.qtdConcluidas++;
+                    }
+                    if (Number(t.resultado_valido) === 1 && Number(t.peso_solicitado) > movObj.maiorValida) {
+                        movObj.maiorValida = Number(t.peso_solicitado);
+                    }
+                } else if (idx > 2) {
+                    if (!movObj.tentativasExtras.some(te => Number(te.numero_tentativa) === numTent)) {
+                        movObj.tentativasExtras.push(t);
+                        movObj.qtdConcluidas++;
+                    }
+                    if (contabilizarTentativaExtra && Number(t.resultado_valido) === 1 && Number(t.peso_solicitado) > movObj.maiorValida) {
+                        movObj.maiorValida = Number(t.peso_solicitado);
+                    }
+                }
+            } catch (errBruto) {
+                console.error("Erro isolado ao processar tentativa bruta nos resultados:", errBruto, t);
+            }
+        });
+
+        // Filtra inscrições por Equipamento e Sexo selecionados
+        const listaInscricoesFiltradas = Object.values(mapaInscricoesGlobal).filter(insc => {
+            if (filtroEquip !== 'TODOS' && insc.equipamento !== filtroEquip) return false;
+            if (filtroSexo === 'M' && insc.sexo !== 'M') return false;
+            if (filtroSexo === 'F' && insc.sexo !== 'F') return false;
+            return true;
+        });
+
+        const categoriasEncontradas = new Set();
+        const divisoesEncontradas = new Set();
+        const pesosEncontrados = new Set();
+
+        const bannerBat = document.getElementById('banner_bateria_ativa');
+        const textoBannerBat = document.getElementById('texto_banner_bateria');
+
+        // ========================================================================
+        // CASO 1: FILTRO DE BATERIA ATIVO
+        // Filtra apenas os atletas que competiram naquela bateria e separa cada um
+        // na sua devida Categoria (Equipamento | Sexo | Divisão de Idade | Peso),
+        // exceto se o organizador tiver selecionado explicitamente o modo OVERALL.
+        // ========================================================================
+        if (filtroBateriaVal !== 'TODAS') {
+            const [movBateria, nomeBateria, platStr] = filtroBateriaVal.split('||');
+            const platBateria = Number(platStr) || 1;
+            const nomeMovFormatado = NOMES_MOVIMENTOS[movBateria] || movBateria.toUpperCase();
+            const ehOverallNaBateria = (modoVisao === 'OVERALL_MOVIMENTO' || modoVisao === 'OVERALL_TOTAL');
+
+            bannerBat.style.display = 'flex';
+            textoBannerBat.innerText = `🎯 Exibindo resultados por categoria apenas dos atletas da bateria: ${nomeMovFormatado.toUpperCase()} — ${nomeBateria} (Plataforma ${platBateria})`;
+
+            const agrupadoBateria = {};
+
+            listaInscricoesFiltradas.forEach(insc => {
+                const dadosMov = insc.movimentos[movBateria];
+                if (!dadosMov) return;
+                if (dadosMov.bateria !== nomeBateria || Number(dadosMov.plataforma || 1) !== platBateria) return;
+
+                const sexoTxt = insc.sexo === 'M' ? 'Masculino' : 'Feminino';
+                const aindaCompetindo = dadosMov.qtdPendentes > 0;
+                const desclassificadoNoMov = (dadosMov.maiorValida <= 0 && !aindaCompetindo);
+                const coef = calcularPontuacaoAtleta(dadosMov.maiorValida, insc.pesoCorporal, insc.sexo, criterio);
+
+                const divisoesParaIterar = (ehOverallNaBateria && unificarIdadesOverall)
+                    ? ['Todas as Idades']
+                    : insc.divisoes;
+
+                divisoesParaIterar.forEach(idade => {
+                    divisoesEncontradas.add(idade);
+                    pesosEncontrados.add(insc.categoriaPeso);
+
+                    const catChave = ehOverallNaBateria
+                        ? (mistoAtivado
+                            ? `👑 OVERALL (${nomeBateria}) | ${insc.equipamento} | Misto | ${idade}`
+                            : `👑 OVERALL (${nomeBateria}) | ${insc.equipamento} | ${sexoTxt} | ${idade}`)
+                        : (mistoAtivado
+                            ? `${insc.equipamento} | Misto | ${idade} | ${insc.categoriaPeso}`
+                            : `${insc.equipamento} | ${sexoTxt} | ${idade} | ${insc.categoriaPeso}`);
+
+                    categoriasEncontradas.add(catChave);
+                    if (!agrupadoBateria[catChave]) agrupadoBateria[catChave] = [];
+
+                    agrupadoBateria[catChave].push({
+                        inscricao_id: insc.inscricao_id,
+                        nome: insc.nome,
+                        sexo: insc.sexo,
+                        equipe: insc.equipe,
+                        equipamento: insc.equipamento,
+                        divisaoTexto: (ehOverallNaBateria && unificarIdadesOverall) ? insc.divisoes.join(' + ') : idade,
+                        categoriaPeso: insc.categoriaPeso,
+                        pesoCorporal: insc.pesoCorporal,
+                        numeroLote: insc.numeroLote,
+                        bateria: dadosMov.bateria,
+                        plataforma: dadosMov.plataforma,
+                        tentativas: dadosMov.tentativas,
+                        tentativasExtras: dadosMov.tentativasExtras,
+                        marcaPrincipal: dadosMov.maiorValida,
+                        emAndamento: aindaCompetindo,
+                        desclassificado: desclassificadoNoMov,
+                        motivoZero: 'ZEROU',
+                        coeficiente: coef
+                    });
+                });
+            });
+
+            Object.keys(agrupadoBateria).sort(compararChavesDeCategoria).forEach(cat => {
+                tabelasProcessadas.push({
+                    tipo: 'MOVIMENTO',
+                    bateriaDestaque: true,
+                    overall: ehOverallNaBateria,
+                    categoria: cat,
+                    movimento: movBateria,
+                    criterioUsado: criterio,
+                    titulo: ehOverallNaBateria
+                        ? `${cat} — ${nomeMovFormatado.toUpperCase()}`
+                        : `🎯 ${nomeMovFormatado.toUpperCase()} (${nomeBateria}) — ${cat}`,
+                    atletas: ordenarListaAtletas(agrupadoBateria[cat], criterio)
+                });
+            });
+
+            atualizarSelectCategorias(categoriasEncontradas, divisoesEncontradas, pesosEncontrados);
+            renderizarTelas();
+            return;
+        }
+
+        bannerBat.style.display = 'none';
+
+        // ========================================================================
+        // MODO 1: POR MOVIMENTO (TODOS, APENAS SUPINO, APENAS AGACHO, APENAS TERRA OU OVERALL MOVIMENTO)
+        // Todos que fizeram o movimento na mesma categoria competem juntos!
+        // ========================================================================
+        if (['MOVIMENTO', 'SUPINO', 'AGACHAMENTO', 'TERRA', 'OVERALL_MOVIMENTO'].includes(modoVisao)) {
+            const ehOverallMov = (modoVisao === 'OVERALL_MOVIMENTO');
+            const movimentosAlvo = modoVisao === 'SUPINO' ? ['supino']
+                : (modoVisao === 'AGACHAMENTO' ? ['agachamento']
+                : (modoVisao === 'TERRA' ? ['terra'] : ['agachamento', 'supino', 'terra']));
+
+            const agrupadoMov = {};
+
+            listaInscricoesFiltradas.forEach(insc => {
+                const sexoTxt = insc.sexo === 'M' ? 'Masculino' : 'Feminino';
+                const divisoesParaIterar = (ehOverallMov && unificarIdadesOverall)
+                    ? ['Todas as Idades']
+                    : insc.divisoes;
+
+                divisoesParaIterar.forEach(idade => {
+                    divisoesEncontradas.add(idade);
+                    pesosEncontrados.add(insc.categoriaPeso);
+
+                    const catChave = ehOverallMov
+                        ? (mistoAtivado
+                            ? `👑 OVERALL | ${insc.equipamento} | Misto | ${idade}`
+                            : `👑 OVERALL | ${insc.equipamento} | ${sexoTxt} | ${idade}`)
+                        : (mistoAtivado
+                            ? `${insc.equipamento} | Misto | ${idade} | ${insc.categoriaPeso}`
+                            : `${insc.equipamento} | ${sexoTxt} | ${idade} | ${insc.categoriaPeso}`);
+
+                    movimentosAlvo.forEach(mov => {
+                        if (!atletaParticipaDoMovimento(insc, mov)) return;
+
+                        const dadosMov = insc.movimentos[mov];
+                        categoriasEncontradas.add(catChave);
+                        if (!agrupadoMov[mov]) agrupadoMov[mov] = {};
+                        if (!agrupadoMov[mov][catChave]) agrupadoMov[mov][catChave] = [];
+
+                        const aindaCompetindoNoMov = dadosMov.qtdPendentes > 0;
+                        const desclassificadoNoMov = (dadosMov.maiorValida <= 0 && !aindaCompetindoNoMov);
+                        const coef = calcularPontuacaoAtleta(dadosMov.maiorValida, insc.pesoCorporal, insc.sexo, criterio);
+
+                        agrupadoMov[mov][catChave].push({
+                            inscricao_id: insc.inscricao_id,
+                            nome: insc.nome,
+                            sexo: insc.sexo,
+                            equipe: insc.equipe,
+                            equipamento: insc.equipamento,
+                            divisaoTexto: (ehOverallMov && unificarIdadesOverall) ? insc.divisoes.join(' + ') : idade,
+                            categoriaPeso: insc.categoriaPeso,
+                            pesoCorporal: insc.pesoCorporal,
+                            numeroLote: insc.numeroLote,
+                            bateria: dadosMov.bateria,
+                            plataforma: dadosMov.plataforma,
+                            tentativas: dadosMov.tentativas,
+                            tentativasExtras: dadosMov.tentativasExtras,
+                            marcaPrincipal: dadosMov.maiorValida,
+                            emAndamento: aindaCompetindoNoMov,
+                            desclassificado: desclassificadoNoMov,
+                            motivoZero: 'ZEROU',
+                            coeficiente: coef
+                        });
+                    });
+                });
+            });
+
+            movimentosAlvo.forEach(mov => {
+                if (!agrupadoMov[mov]) return;
+                const nomeMovTxt = NOMES_MOVIMENTOS[mov] || mov.toUpperCase();
+                Object.keys(agrupadoMov[mov]).sort(compararChavesDeCategoria).forEach(cat => {
+                    tabelasProcessadas.push({
+                        tipo: 'MOVIMENTO',
+                        overall: ehOverallMov,
+                        categoria: cat,
+                        movimento: mov,
+                        criterioUsado: criterio,
+                        titulo: ehOverallMov
+                            ? `${cat} — ${nomeMovTxt.toUpperCase()}`
+                            : `🏋️ ${nomeMovTxt.toUpperCase()} — ${cat}`,
+                        atletas: ordenarListaAtletas(agrupadoMov[mov][cat], criterio)
+                    });
+                });
+            });
+        }
+
+        // ========================================================================
+        // MODO 2: TOTAIS (PUSH-PULL, FULL POWER E OVERALL TOTAL)
+        // ========================================================================
+        if (['PUSH_PULL', 'FULL_POWER', 'OVERALL_TOTAL'].includes(modoVisao)) {
+            const ehOverallTotal = (modoVisao === 'OVERALL_TOTAL');
+            const tiposTotalParaGerar = [];
+
+            if (modoVisao === 'FULL_POWER' || ehOverallTotal) {
+                tiposTotalParaGerar.push({
+                    codigo: 'FULL_POWER',
+                    rotulo: 'TOTAL FULL POWER (AGACHAMENTO + SUPINO + TERRA)',
+                    movsRequeridos: ['agachamento', 'supino', 'terra']
+                });
+            }
+            if (modoVisao === 'PUSH_PULL' || ehOverallTotal) {
+                tiposTotalParaGerar.push({
+                    codigo: 'PUSH_PULL',
+                    rotulo: 'TOTAL PUSH-PULL (SUPINO + TERRA)',
+                    movsRequeridos: ['supino', 'terra']
+                });
+            }
+
+            tiposTotalParaGerar.forEach(cfgTotal => {
+                const agrupadoTotal = {};
+                const movimentosIniciadosPorChave = {};
+
+                // Verifica quais atletas entram nesta disputa de Total
+                const inscricoesElegiveis = listaInscricoesFiltradas.filter(insc => {
+                    const movsInsc = obterMovimentosRequeridosDaModalidade(insc.modalidade);
+                    if (cfgTotal.codigo === 'FULL_POWER') {
+                        const temTodos3 = movsInsc.includes('agachamento') && movsInsc.includes('supino') && movsInsc.includes('terra');
+                        const executou3 = atletaParticipaDoMovimento(insc, 'agachamento') && atletaParticipaDoMovimento(insc, 'supino') && atletaParticipaDoMovimento(insc, 'terra');
+                        return temTodos3 || executou3;
+                    }
+                    if (cfgTotal.codigo === 'PUSH_PULL') {
+                        if (!incluirFullPowerNoPushPull && insc.modalidade !== 'Push-Pull') {
+                            return false;
+                        }
+                        const fazSupinoETerra = movsInsc.includes('supino') && movsInsc.includes('terra');
+                        const executouSupinoETerra = atletaParticipaDoMovimento(insc, 'supino') && atletaParticipaDoMovimento(insc, 'terra');
+                        return fazSupinoETerra || executouSupinoETerra;
+                    }
+                    return false;
+                });
+
+                inscricoesElegiveis.forEach(insc => {
+                    const sexoTxt = insc.sexo === 'M' ? 'Masculino' : 'Feminino';
+                    const divisoesParaIterar = (ehOverallTotal && unificarIdadesOverall)
+                        ? ['Todas as Idades']
+                        : insc.divisoes;
+
+                    divisoesParaIterar.forEach(idade => {
+                        const catChave = ehOverallTotal
+                            ? (mistoAtivado
+                                ? `👑 OVERALL ${cfgTotal.codigo === 'FULL_POWER' ? 'FULL POWER' : 'PUSH-PULL'} | ${insc.equipamento} | Misto | ${idade}`
+                                : `👑 OVERALL ${cfgTotal.codigo === 'FULL_POWER' ? 'FULL POWER' : 'PUSH-PULL'} | ${insc.equipamento} | ${sexoTxt} | ${idade}`)
+                            : (mistoAtivado
+                                ? `${insc.equipamento} | Misto | ${idade} | ${insc.categoriaPeso}`
+                                : `${insc.equipamento} | ${sexoTxt} | ${idade} | ${insc.categoriaPeso}`);
+
+                        if (!movimentosIniciadosPorChave[catChave]) {
+                            movimentosIniciadosPorChave[catChave] = { agachamento: false, supino: false, terra: false };
+                        }
+                        cfgTotal.movsRequeridos.forEach(m => {
+                            if (insc.movimentos[m].qtdConcluidas > 0) {
+                                movimentosIniciadosPorChave[catChave][m] = true;
+                            }
+                        });
+                    });
+                });
+
+                inscricoesElegiveis.forEach(insc => {
+                    const sexoTxt = insc.sexo === 'M' ? 'Masculino' : 'Feminino';
+                    const divisoesParaIterar = (ehOverallTotal && unificarIdadesOverall)
+                        ? ['Todas as Idades']
+                        : insc.divisoes;
+
+                    divisoesParaIterar.forEach(idade => {
+                        divisoesEncontradas.add(idade);
+                        pesosEncontrados.add(insc.categoriaPeso);
+
+                        const catChave = ehOverallTotal
+                            ? (mistoAtivado
+                                ? `👑 OVERALL ${cfgTotal.codigo === 'FULL_POWER' ? 'FULL POWER' : 'PUSH-PULL'} | ${insc.equipamento} | Misto | ${idade}`
+                                : `👑 OVERALL ${cfgTotal.codigo === 'FULL_POWER' ? 'FULL POWER' : 'PUSH-PULL'} | ${insc.equipamento} | ${sexoTxt} | ${idade}`)
+                            : (mistoAtivado
+                                ? `${insc.equipamento} | Misto | ${idade} | ${insc.categoriaPeso}`
+                                : `${insc.equipamento} | ${sexoTxt} | ${idade} | ${insc.categoriaPeso}`);
+
+                        categoriasEncontradas.add(catChave);
+                        if (!agrupadoTotal[catChave]) {
+                            agrupadoTotal[catChave] = [];
+                        }
+
+                        let somaTotal = 0;
+                        let zerouAlgumMovimento = false;
+                        let atletaEmAndamento = false;
+                        let motivoZero = 'ZEROU';
+
+                        cfgTotal.movsRequeridos.forEach(m => {
+                            const infoM = insc.movimentos[m];
+                            somaTotal += infoM.maiorValida;
+
+                            const movimentoJaOcorreuNaChave = movimentosIniciadosPorChave[catChave]?.[m];
+                            if (infoM.qtdPendentes > 0) {
+                                atletaEmAndamento = true;
+                            }
+
+                            if (infoM.qtdConcluidas > 0 && infoM.maiorValida <= 0) {
+                                if (infoM.qtdPendentes === 0) {
+                                    zerouAlgumMovimento = true;
+                                    motivoZero = `ZEROU ${m.toUpperCase()}`;
+                                }
+                            } else if (infoM.qtdConcluidas === 0 && movimentoJaOcorreuNaChave) {
+                                if (infoM.qtdPendentes === 0) {
+                                    zerouAlgumMovimento = true;
+                                    motivoZero = `SEM ${m.toUpperCase()}`;
+                                }
+                            }
+                        });
+
+                        const desclassificadoFinal = permitirTotalIncompleto
+                            ? (somaTotal <= 0 && !atletaEmAndamento)
+                            : (zerouAlgumMovimento || (somaTotal <= 0 && !atletaEmAndamento));
+
+                        const marcaEfetiva = desclassificadoFinal ? 0 : somaTotal;
+                        const coef = calcularPontuacaoAtleta(marcaEfetiva, insc.pesoCorporal, insc.sexo, criterio);
+
+                        agrupadoTotal[catChave].push({
+                            inscricao_id: insc.inscricao_id,
+                            nome: insc.nome,
+                            sexo: insc.sexo,
+                            equipe: insc.equipe,
+                            equipamento: insc.equipamento,
+                            divisaoTexto: (ehOverallTotal && unificarIdadesOverall) ? insc.divisoes.join(' + ') : idade,
+                            categoriaPeso: insc.categoriaPeso,
+                            pesoCorporal: insc.pesoCorporal,
+                            numeroLote: insc.numeroLote,
+                            movimentos: insc.movimentos,
+                            somaBruta: somaTotal,
+                            marcaPrincipal: marcaEfetiva,
+                            emAndamento: atletaEmAndamento,
+                            desclassificado: desclassificadoFinal,
+                            zerouAlgumMovimento: zerouAlgumMovimento,
+                            motivoZero: motivoZero,
+                            coeficiente: coef
+                        });
+                    });
+                });
+
+                Object.keys(agrupadoTotal).sort(compararChavesDeCategoria).forEach(cat => {
+                    tabelasProcessadas.push({
+                        tipo: 'MODALIDADE',
+                        overall: ehOverallTotal,
+                        categoria: cat,
+                        codigoTotal: cfgTotal.codigo,
+                        movsRequeridos: cfgTotal.movsRequeridos,
+                        criterioUsado: criterio,
+                        titulo: ehOverallTotal ? cat : `🏆 ${cfgTotal.rotulo} — ${cat}`,
+                        atletas: ordenarListaAtletas(agrupadoTotal[cat], criterio)
+                    });
+                });
+            });
+        }
+
+        atualizarSelectCategorias(categoriasEncontradas, divisoesEncontradas, pesosEncontrados);
+        renderizarTelas();
+    }
+
+    function atualizarSelectCategorias(categoriasEncontradas, divisoesEncontradas, pesosEncontrados) {
+        const selectCat = document.getElementById('select_categoria');
+        const catAnterior = selectCat.value;
+
+        let htmlCat = '<option value="TODAS">Todas as Categorias</option>';
+
+        if (divisoesEncontradas.size > 1) {
+            htmlCat += '<optgroup label="🎂 Filtrar por Divisão de Idade">';
+            Array.from(divisoesEncontradas).sort().forEach(div => {
+                htmlCat += `<option value="DIV:${escapeHtml(div)}">Divisão: ${escapeHtml(div)}</option>`;
+            });
+            htmlCat += '</optgroup>';
+        }
+
+        if (pesosEncontrados.size > 1) {
+            htmlCat += '<optgroup label="⚖️ Filtrar por Categoria de Peso">';
+            Array.from(pesosEncontrados).sort((a, b) => extrairPesoNumericoParaOrdem(a) - extrairPesoNumericoParaOrdem(b)).forEach(peso => {
+                htmlCat += `<option value="PESO:${escapeHtml(peso)}">Peso: ${escapeHtml(peso)}</option>`;
+            });
+            htmlCat += '</optgroup>';
+        }
+
+        if (categoriasEncontradas.size > 0) {
+            htmlCat += '<optgroup label="📋 Chaves Completas">';
+            Array.from(categoriasEncontradas).sort(compararChavesDeCategoria).forEach(cat => {
+                htmlCat += `<option value="${escapeHtml(cat)}">${escapeHtml(cat)}</option>`;
+            });
+            htmlCat += '</optgroup>';
+        }
+
+        selectCat.innerHTML = htmlCat;
+        if (catAnterior && Array.from(selectCat.options).some(o => o.value === catAnterior)) {
+            selectCat.value = catAnterior;
+        }
+    }
+
+    // Ordenação Oficial:
+    // 1. Atletas válidos com carga > 0 vêm primeiro; em andamento sem carga a seguir; desclassificados (ZEROU) por último.
+    // 2. Quando Critério = TOTAL_KG: Maior Carga vence -> Menor Peso Corporal desempata -> Menor Lote desempata.
+    // 3. Quando Critério = DOTS/WILKS/RELATIVO: Maior Coeficiente vence -> Maior Carga desempata -> Menor Peso Corporal desempata.
+    function ordenarListaAtletas(lista, criterio) {
+        return [...lista].sort((a, b) => {
+            if (a.desclassificado !== b.desclassificado) {
+                return a.desclassificado ? 1 : -1;
+            }
+            const aTemMarca = a.marcaPrincipal > 0;
+            const bTemMarca = b.marcaPrincipal > 0;
+            if (aTemMarca !== bTemMarca) {
+                return aTemMarca ? -1 : 1;
+            }
+            if (criterio !== 'TOTAL_KG') {
+                if (Math.abs(b.coeficiente - a.coeficiente) > 0.0001) {
+                    return b.coeficiente - a.coeficiente;
+                }
+            }
+            if (b.marcaPrincipal !== a.marcaPrincipal) {
+                return b.marcaPrincipal - a.marcaPrincipal;
+            }
+            if (a.pesoCorporal !== b.pesoCorporal) {
+                return a.pesoCorporal - b.pesoCorporal;
+            }
+            return (a.numeroLote || 99999) - (b.numeroLote || 99999);
+        });
+    }
+
+    function tabelaPassaFiltroCategoria(tab, filtroCat) {
+        if (!filtroCat || filtroCat === 'TODAS') return true;
+        if (filtroCat.startsWith('DIV:')) {
+            const divAlvo = filtroCat.slice(4);
+            const partes = String(tab.categoria).split(' | ').map(s => s.trim());
+            return partes.includes(divAlvo);
+        }
+        if (filtroCat.startsWith('PESO:')) {
+            const pesoAlvo = filtroCat.slice(5);
+            const partes = String(tab.categoria).split(' | ').map(s => s.trim());
+            return partes.includes(pesoAlvo);
+        }
+        return tab.categoria === filtroCat;
+    }
+
+    function obterTabelasVisiveisNaTela() {
+        const filtroCat = document.getElementById('select_categoria').value;
+        return tabelasProcessadas.filter(tab => tabelaPassaFiltroCategoria(tab, filtroCat));
+    }
+
+    function renderizarTelas() {
+        const filtroCat = document.getElementById('select_categoria').value;
+        const areaEspec = document.getElementById('area_especifica');
+        const areaGeral = document.getElementById('area_geral');
+        let htmlEspec = '';
+        let htmlGeral = '';
+
+        tabelasProcessadas.forEach(tab => {
+            try {
+                const htmlTabela = tab.tipo === 'MOVIMENTO'
+                    ? gerarTabelaMovimentoUnicoHTML(tab)
+                    : gerarTabelaModalidadeHTML(tab);
+
+                if (tabelaPassaFiltroCategoria(tab, filtroCat)) {
+                    htmlEspec += htmlTabela;
+                }
+                htmlGeral += htmlTabela;
+            } catch (errTab) {
+                console.error("Erro isolado ao renderizar tabela de resultados:", errTab, tab);
+            }
+        });
+
+        areaEspec.innerHTML = htmlEspec !== ''
+            ? htmlEspec
+            : '<p style="text-align:center; color:#7f8c8d; padding: 20px;">Nenhum resultado encontrado para este filtro ainda.</p>';
+        areaGeral.innerHTML = htmlGeral;
+    }
+
+    function gerarTabelaModalidadeHTML(tab) {
+        const criterio = tab.criterioUsado || document.getElementById('select_criterio').value;
+        const rotuloColunaCoef = obterRotuloColunaCoeficiente(criterio);
+        const rotuloOrdem = obterRotuloCriterioOrdenacao(criterio);
+        const movs = tab.movsRequeridos;
+
+        let html = `<h3 class="titulo-secao ${tab.overall ? 'overall' : ''}">
+                        <span>${escapeHtml(tab.titulo)}</span>
+                        <span style="font-size: 12px; font-weight: normal; opacity: 0.9;">Ordem: ${escapeHtml(rotuloOrdem)}</span>
+                    </h3>
+                    <table class="tabela-resultados">
+                        <tr>
+                            <th width="6%">Pos</th>
+                            <th width="24%" style="text-align:left;">Atleta</th>
+                            ${movs.map(m => `<th>${NOMES_MOVIMENTOS[m]}</th>`).join('')}
+                            <th width="13%">Total</th>
+                            <th width="12%">${escapeHtml(rotuloColunaCoef)}</th>
+                        </tr>`;
+
+        let posValidaContador = 0;
+        tab.atletas.forEach((a) => {
+            try {
+                let classePos = '';
+                let txtPos = '-';
+                if (!a.desclassificado && a.marcaPrincipal > 0) {
+                    posValidaContador++;
+                    classePos = posValidaContador === 1 ? 'pos-1' : (posValidaContador === 2 ? 'pos-2' : (posValidaContador === 3 ? 'pos-3' : ''));
+                    txtPos = posValidaContador === 1 ? '🥇' : (posValidaContador === 2 ? '🥈' : (posValidaContador === 3 ? '🥉' : `${posValidaContador}º`));
+                }
+
+                const pesoCorpTxt = a.pesoCorporal !== 999 ? `${escapeHtml(a.pesoCorporal)}kg` : '--';
+                const catTxt = tab.overall ? ` | Cat: ${escapeHtml(a.divisaoTexto ? a.divisaoTexto + ' • ' : '')}${escapeHtml(a.categoriaPeso)}` : '';
+                const equipeTxt = a.equipe ? ` | ${escapeHtml(a.equipe)}` : '';
+
+                let htmlTotal = '';
+                if (a.desclassificado) {
+                    const detalheParcial = a.somaBruta > 0 ? `<br><small style="color:#7f8c8d;">(Soma parcial: ${a.somaBruta}kg)</small>` : '';
+                    htmlTotal = `<span class="badge-sem-total">${escapeHtml(a.motivoZero)}</span>${detalheParcial}`;
+                } else if (a.marcaPrincipal <= 0 && a.emAndamento) {
+                    htmlTotal = `<span class="badge-em-andamento">⏳ Em andamento</span>`;
+                } else {
+                    const avisoFlexivel = a.zerouAlgumMovimento
+                        ? `<br><small style="color:#d35400; font-weight:bold;">⚠️ Total Flexível</small>`
+                        : (a.emAndamento ? `<br><small style="color:#d35400;">⏳ Parcial</small>` : '');
+                    htmlTotal = `<span class="maior-pedida">${a.marcaPrincipal} kg</span>${avisoFlexivel}`;
+                }
+
+                html += `<tr>
+                            <td class="${classePos}">${txtPos}</td>
+                            <td class="nome-atleta">
+                                ${escapeHtml(a.nome)}<br>
+                                <span style="font-size:11px; font-weight:normal; color:#7f8c8d;">Peso Corp: ${pesoCorpTxt}${catTxt}${equipeTxt}</span>
+                            </td>
+                            ${movs.map(m => `<td>${gerarResumoMovimentoComLuzesHTML(a.movimentos[m])}</td>`).join('')}
+                            <td>${htmlTotal}</td>
+                            <td><span class="badge-coef">${formatarValorCoeficiente(a.coeficiente, criterio)}</span></td>
+                        </tr>`;
+            } catch (errAtleta) {
+                console.error("Erro isolado ao renderizar linha de atleta na modalidade:", errAtleta, a);
+            }
+        });
+
+        html += `</table>`;
+        return html;
+    }
+
+    function gerarResumoMovimentoComLuzesHTML(infoMov) {
+        if (!infoMov || infoMov.qtdConcluidas === 0) {
+            if (infoMov && infoMov.qtdPendentes > 0) {
+                return '<span style="color:#d35400; font-size:12px; font-weight:bold;">⏳ Aguardando</span>';
+            }
+            return '<span style="color:#bdc3c7;">-</span>';
+        }
+        let itensHTML = '<div class="mini-tentativas">';
+        for (let i = 0; i < 3; i++) {
+            const t = infoMov.tentativas[i];
+            if (!t) continue;
+            itensHTML += `<div class="mini-item">${gerarCelularTentativa(t)}</div>`;
+        }
+        if (Array.isArray(infoMov.tentativasExtras) && infoMov.tentativasExtras.length > 0) {
+            infoMov.tentativasExtras.forEach(tExtra => {
+                itensHTML += `<div class="mini-item extra" title="${tExtra.numero_tentativa}ª Tentativa (Extra / PR)"><small style="color:#d35400;font-weight:bold;">${tExtra.numero_tentativa}ª (Extra)</small>${gerarCelularTentativa(tExtra)}</div>`;
+            });
+        }
+        itensHTML += '</div>';
+
+        let melhorTxt = '';
+        if (infoMov.maiorValida > 0) {
+            melhorTxt = `<div class="melhor-sub">Melhor: ${infoMov.maiorValida} kg</div>`;
+        } else if (infoMov.qtdPendentes > 0) {
+            melhorTxt = `<div class="melhor-sub" style="color:#d35400;">⏳ Em andamento</div>`;
+        } else {
+            melhorTxt = `<div class="melhor-sub" style="color:#e74c3c;">Zerou (0 kg)</div>`;
+        }
+
+        return itensHTML + melhorTxt;
+    }
+
+    function gerarTabelaMovimentoUnicoHTML(tab) {
+        const criterio = tab.criterioUsado || document.getElementById('select_criterio').value;
+        const rotuloColunaCoef = obterRotuloColunaCoeficiente(criterio);
+        const rotuloOrdem = obterRotuloCriterioOrdenacao(criterio);
+        const temAlgumaExtra = tab.atletas.some(a => Array.isArray(a.tentativasExtras) && a.tentativasExtras.length > 0);
+        const classeHeader = tab.overall ? 'overall' : (tab.bateriaDestaque ? 'bateria-destaque' : '');
+
+        let html = `<h3 class="titulo-secao ${classeHeader}">
+                        <span>${escapeHtml(tab.titulo)}</span>
+                        <span style="font-size: 12px; font-weight: normal; opacity: 0.9;">Ordem: ${escapeHtml(rotuloOrdem)}</span>
+                    </h3>
+                    <table class="tabela-resultados">
+                        <tr>
+                            <th width="6%">Pos</th>
+                            <th width="26%" style="text-align:left;">Atleta</th>
+                            <th width="13%">1ª Tentativa</th>
+                            <th width="13%">2ª Tentativa</th>
+                            <th width="13%">3ª Tentativa</th>
+                            ${temAlgumaExtra ? '<th width="11%">4ª+ (Extra)</th>' : ''}
+                            <th width="13%">Melhor Marca</th>
+                            <th width="12%">${escapeHtml(rotuloColunaCoef)}</th>
+                        </tr>`;
+
+        let posValidaContador = 0;
+        tab.atletas.forEach((a) => {
+            try {
+                let classePos = '';
+                let txtPos = '-';
+                if (!a.desclassificado && a.marcaPrincipal > 0) {
+                    posValidaContador++;
+                    classePos = posValidaContador === 1 ? 'pos-1' : (posValidaContador === 2 ? 'pos-2' : (posValidaContador === 3 ? 'pos-3' : ''));
+                    txtPos = posValidaContador === 1 ? '🥇' : (posValidaContador === 2 ? '🥈' : (posValidaContador === 3 ? '🥉' : `${posValidaContador}º`));
+                }
+
+                const pesoCorpTxt = a.pesoCorporal !== 999 ? `${escapeHtml(a.pesoCorporal)}kg` : '--';
+                const catTxt = (tab.overall && a.categoriaPeso)
+                    ? ` | Cat: ${escapeHtml(a.equipamento ? a.equipamento + ' • ' : '')}${escapeHtml(a.divisaoTexto ? a.divisaoTexto + ' • ' : '')}${escapeHtml(a.categoriaPeso)}`
+                    : '';
+                const batInfoTxt = a.bateria ? ` | Bat: ${escapeHtml(a.bateria)}` : '';
+                const equipeTxt = a.equipe ? ` | ${escapeHtml(a.equipe)}` : '';
+
+                let htmlExtras = '';
+                if (temAlgumaExtra) {
+                    if (Array.isArray(a.tentativasExtras) && a.tentativasExtras.length > 0) {
+                        htmlExtras = `<td>${a.tentativasExtras.map(te => gerarCelularTentativa(te)).join('<hr style="border:none;border-top:1px dashed #ccc;margin:4px 0;">')}</td>`;
+                    } else {
+                        htmlExtras = `<td><span style="color:#bdc3c7;">-</span></td>`;
+                    }
+                }
+
+                let badgeMarca = '';
+                if (a.marcaPrincipal > 0) {
+                    badgeMarca = `<span class="maior-pedida">${a.marcaPrincipal} kg</span>`;
+                } else if (a.emAndamento) {
+                    badgeMarca = `<span class="badge-em-andamento">⏳ Em andamento</span>`;
+                } else {
+                    badgeMarca = `<span class="badge-sem-total">ZEROU</span>`;
+                }
+
+                html += `<tr>
+                            <td class="${classePos}">${txtPos}</td>
+                            <td class="nome-atleta">${escapeHtml(a.nome)} <br><span style="font-size:11px; font-weight:normal; color:#7f8c8d;">Peso Corp: ${pesoCorpTxt}${catTxt}${batInfoTxt}${equipeTxt}</span></td>
+                            <td>${gerarCelularTentativa(a.tentativas[0])}</td>
+                            <td>${gerarCelularTentativa(a.tentativas[1])}</td>
+                            <td>${gerarCelularTentativa(a.tentativas[2])}</td>
+                            ${htmlExtras}
+                            <td>${badgeMarca}</td>
+                            <td><span class="badge-coef">${formatarValorCoeficiente(a.coeficiente, criterio)}</span></td>
+                        </tr>`;
+            } catch (errMovRow) {
+                console.error("Erro isolado ao renderizar linha de movimento único:", errMovRow, a);
+            }
+        });
+
+        html += `</table>`;
+        return html;
+    }
+
+    function gerarCelularTentativa(t) {
+        if (!t) return '<span style="color:#bdc3c7;">-</span>';
+        
+        const valido = Number(t.resultado_valido) === 1;
+        const classePeso = valido ? 'peso-valido' : 'peso-invalido';
+
+        const luzEsqBranca = t.luz_esquerda !== null && t.luz_esquerda !== undefined ? Number(t.luz_esquerda) === 1 : valido;
+        const luzCenBranca = t.luz_central !== null && t.luz_central !== undefined ? Number(t.luz_central) === 1 : valido;
+        const luzDirBranca = t.luz_direita !== null && t.luz_direita !== undefined ? Number(t.luz_direita) === 1 : valido;
+
+        let luzesHTML = `
+            <div class="luzes-box">
+                <div class="bolinha ${luzEsqBranca ? 'branca' : 'vermelha'}"></div>
+                <div class="bolinha ${luzCenBranca ? 'branca' : 'vermelha'}"></div>
+                <div class="bolinha ${luzDirBranca ? 'branca' : 'vermelha'}"></div>
+            </div>`;
+            
+        return `<div class="${classePeso}">${escapeHtml(t.peso_solicitado)} kg</div> ${luzesHTML}`;
+    }
+
+    // ============================================================================
+    // EXPORTAÇÃO PARA EXCEL (.CSV COM UTF-8 BOM E SEPARADOR ';')
+    // ============================================================================
+
+    function escaparCelulaCSV(valor) {
+        if (valor === null || valor === undefined) return '';
+        const str = String(valor).replace(/\r?\n|\r/g, ' ').trim();
+        if (str.includes(';') || str.includes('"')) {
+            return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+    }
+
+    function formatarNumeroCSV(num, casas = 2) {
+        if (num === null || num === undefined || num === '' || !Number.isFinite(Number(num))) return '';
+        const n = Number(num);
+        if (n <= 0) return '0';
+        return Number.isInteger(n) ? String(n) : n.toFixed(casas).replace('.', ',');
+    }
+
+    function formatarTentativaTextoCSV(t) {
+        if (!t) return '';
+        const peso = formatarNumeroCSV(t.peso_solicitado);
+        const valido = Number(t.resultado_valido) === 1 ? 'Válido' : 'Inválido';
+        return `${peso}kg (${valido})`;
+    }
+
+    function dispararDownloadCSV(linhasArray, sufixoArquivo) {
+        const selectEv = document.getElementById('select_evento');
+        const nomeEv = selectEv.options[selectEv.selectedIndex]?.text || 'campeonato';
+        const nomeLimpo = nomeEv.replace(/[^a-zA-Z0-9_-]/g, '_').replace(/_+/g, '_');
+
+        // \uFEFF garante que o Microsoft Excel no Windows abra acentos (UTF-8) perfeitamente
+        const conteudoCSV = '\uFEFF' + linhasArray.map(colunas => colunas.map(escaparCelulaCSV).join(';')).join('\r\n');
+        const blob = new Blob([conteudoCSV], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `resultados_${nomeLimpo}_${sufixoArquivo}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    }
+
+    // Botão 1: Exporta exatamente as tabelas e classificações visíveis na tela
+    function exportarRankingAtualCSV() {
+        const evId = document.getElementById('select_evento').value;
+        if (!evId) {
+            alert("Selecione primeiro um campeonato!");
+            return;
+        }
+
+        const tabelasVisiveis = obterTabelasVisiveisNaTela();
+        if (tabelasVisiveis.length === 0) {
+            alert("Não há resultados na seleção atual para exportar.");
+            return;
+        }
+
+        const linhas = [];
+        linhas.push([
+            'Tabela / Categoria',
+            'Tipo de Disputa',
+            'Posição',
+            'Atleta',
+            'Sexo',
+            'Equipe',
+            'Equipamento',
+            'Divisão de Idade',
+            'Categoria de Peso',
+            'Peso Corporal (kg)',
+            'Bateria',
+            '1ª Tentativa / Agachamento',
+            '2ª Tentativa / Supino',
+            '3ª Tentativa / Terra',
+            '4ª+ Tentativa (Extra)',
+            'Melhor Marca / Total (kg)',
+            'Pontos DOTS',
+            'Pontos Wilks',
+            'Índice Peso Corp.',
+            'Status'
+        ]);
+
+        tabelasVisiveis.forEach(tab => {
+            let posContador = 0;
+            tab.atletas.forEach(a => {
+                let posTxt = '-';
+                let statusTxt = 'Concluído';
+
+                if (a.desclassificado) {
+                    statusTxt = a.motivoZero || 'ZEROU';
+                } else if (a.marcaPrincipal <= 0 && a.emAndamento) {
+                    statusTxt = 'Em Andamento';
+                } else if (a.marcaPrincipal > 0) {
+                    posContador++;
+                    posTxt = `${posContador}º`;
+                    if (a.emAndamento) statusTxt = 'Parcial (Em Andamento)';
+                }
+
+                const bw = a.pesoCorporal !== 999 ? formatarNumeroCSV(a.pesoCorporal) : '';
+                const dots = a.marcaPrincipal > 0 && a.pesoCorporal !== 999 ? formatarNumeroCSV(calcularDOTS(a.marcaPrincipal, a.pesoCorporal, a.sexo)) : '';
+                const wilks = a.marcaPrincipal > 0 && a.pesoCorporal !== 999 ? formatarNumeroCSV(calcularWilks(a.marcaPrincipal, a.pesoCorporal, a.sexo)) : '';
+                const rel = a.marcaPrincipal > 0 && a.pesoCorporal !== 999 ? formatarNumeroCSV(calcularDivisaoSimples(a.marcaPrincipal, a.pesoCorporal)) : '';
+
+                if (tab.tipo === 'MOVIMENTO') {
+                    const extrasTxt = Array.isArray(a.tentativasExtras) && a.tentativasExtras.length > 0
+                        ? a.tentativasExtras.map(te => formatarTentativaTextoCSV(te)).join(' | ')
+                        : '';
+                    linhas.push([
+                        tab.titulo.replace(/^[^\wÀ-ÿ]+/, '').trim(),
+                        NOMES_MOVIMENTOS[tab.movimento] || tab.movimento,
+                        posTxt,
+                        a.nome,
+                        a.sexo,
+                        a.equipe,
+                        a.equipamento || '',
+                        a.divisaoTexto || '',
+                        a.categoriaPeso || '',
+                        bw,
+                        a.bateria || '',
+                        formatarTentativaTextoCSV(a.tentativas[0]),
+                        formatarTentativaTextoCSV(a.tentativas[1]),
+                        formatarTentativaTextoCSV(a.tentativas[2]),
+                        extrasTxt,
+                        formatarNumeroCSV(a.marcaPrincipal),
+                        dots,
+                        wilks,
+                        rel,
+                        statusTxt
+                    ]);
+                } else {
+                    const melhorAgacho = a.movimentos?.agachamento?.maiorValida > 0 ? `${formatarNumeroCSV(a.movimentos.agachamento.maiorValida)}kg` : '0kg';
+                    const melhorSupino = a.movimentos?.supino?.maiorValida > 0 ? `${formatarNumeroCSV(a.movimentos.supino.maiorValida)}kg` : '0kg';
+                    const melhorTerra = a.movimentos?.terra?.maiorValida > 0 ? `${formatarNumeroCSV(a.movimentos.terra.maiorValida)}kg` : '0kg';
+
+                    linhas.push([
+                        tab.titulo.replace(/^[^\wÀ-ÿ]+/, '').trim(),
+                        tab.codigoTotal === 'PUSH_PULL' ? 'Total Push-Pull (Supino + Terra)' : 'Total Full Power (3 Movimentos)',
+                        posTxt,
+                        a.nome,
+                        a.sexo,
+                        a.equipe,
+                        a.equipamento || '',
+                        a.divisaoTexto || '',
+                        a.categoriaPeso || '',
+                        bw,
+                        '',
+                        tab.codigoTotal === 'PUSH_PULL' ? '-' : melhorAgacho,
+                        melhorSupino,
+                        melhorTerra,
+                        '',
+                        formatarNumeroCSV(a.marcaPrincipal),
+                        dots,
+                        wilks,
+                        rel,
+                        statusTxt
+                    ]);
+                }
+            });
+        });
+
+        dispararDownloadCSV(linhas, 'ranking_filtrado');
+    }
+
+    // Botão 2: Exporta a base completa (1 linha por inscrição com todos os levantamentos, baterias, totais e coeficientes)
+    function exportarBaseCompletaCSV() {
+        const evId = document.getElementById('select_evento').value;
+        if (!evId) {
+            alert("Selecione primeiro um campeonato!");
+            return;
+        }
+
+        const listaInsc = Object.values(mapaInscricoesGlobal);
+        if (listaInsc.length === 0) {
+            alert("Nenhum atleta encontrado neste campeonato para exportar.");
+            return;
+        }
+
+        const linhas = [];
+        linhas.push([
+            'ID Inscrição',
+            'Atleta',
+            'Sexo',
+            'CPF',
+            'PCD',
+            'Equipe',
+            'Instagram',
+            'Equipamento',
+            'Divisões de Idade',
+            'Categoria de Peso',
+            'Peso Corporal (kg)',
+            'Nº Lote',
+            'Tipo de Inscrição',
+            'Bateria Agachamento',
+            'Plat. Agachamento',
+            'Agacho 1ª (kg)',
+            'Agacho 1ª Resultado',
+            'Agacho 2ª (kg)',
+            'Agacho 2ª Resultado',
+            'Agacho 3ª (kg)',
+            'Agacho 3ª Resultado',
+            'Agacho 4ª+ Extra',
+            'Melhor Agachamento (kg)',
+            'DOTS Agachamento',
+            'Wilks Agachamento',
+            'Bateria Supino',
+            'Plat. Supino',
+            'Supino 1ª (kg)',
+            'Supino 1ª Resultado',
+            'Supino 2ª (kg)',
+            'Supino 2ª Resultado',
+            'Supino 3ª (kg)',
+            'Supino 3ª Resultado',
+            'Supino 4ª+ Extra',
+            'Melhor Supino (kg)',
+            'DOTS Supino',
+            'Wilks Supino',
+            'Bateria Terra',
+            'Plat. Terra',
+            'Terra 1ª (kg)',
+            'Terra 1ª Resultado',
+            'Terra 2ª (kg)',
+            'Terra 2ª Resultado',
+            'Terra 3ª (kg)',
+            'Terra 3ª Resultado',
+            'Terra 4ª+ Extra',
+            'Melhor Terra (kg)',
+            'DOTS Terra',
+            'Wilks Terra',
+            'Total Push-Pull (Supino + Terra) (kg)',
+            'DOTS Push-Pull',
+            'Wilks Push-Pull',
+            'Total Full Power (3 Movs) (kg)',
+            'DOTS Full Power',
+            'Wilks Full Power'
+        ]);
+
+        const extrairColunasMovCSV = (movObj, bw, sexo) => {
+            const t1 = movObj.tentativas[0];
+            const t2 = movObj.tentativas[1];
+            const t3 = movObj.tentativas[2];
+            const extras = Array.isArray(movObj.tentativasExtras) && movObj.tentativasExtras.length > 0
+                ? movObj.tentativasExtras.map(te => formatarTentativaTextoCSV(te)).join(' | ')
+                : '';
+            const melhor = movObj.maiorValida || 0;
+            const dots = (melhor > 0 && bw !== 999) ? formatarNumeroCSV(calcularDOTS(melhor, bw, sexo)) : '0';
+            const wilks = (melhor > 0 && bw !== 999) ? formatarNumeroCSV(calcularWilks(melhor, bw, sexo)) : '0';
+
+            return [
+                movObj.bateria || '',
+                movObj.bateria ? String(movObj.plataforma || 1) : '',
+                t1 ? formatarNumeroCSV(t1.peso_solicitado) : '',
+                t1 ? (Number(t1.resultado_valido) === 1 ? 'Válido' : 'Inválido') : '',
+                t2 ? formatarNumeroCSV(t2.peso_solicitado) : '',
+                t2 ? (Number(t2.resultado_valido) === 1 ? 'Válido' : 'Inválido') : '',
+                t3 ? formatarNumeroCSV(t3.peso_solicitado) : '',
+                t3 ? (Number(t3.resultado_valido) === 1 ? 'Válido' : 'Inválido') : '',
+                extras,
+                formatarNumeroCSV(melhor),
+                dots,
+                wilks
+            ];
+        };
+
+        listaInsc.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')).forEach(insc => {
+            const bw = insc.pesoCorporal;
+            const bwTxt = bw !== 999 ? formatarNumeroCSV(bw) : '';
+
+            const mAgacho = insc.movimentos.agachamento.maiorValida || 0;
+            const mSupino = insc.movimentos.supino.maiorValida || 0;
+            const mTerra = insc.movimentos.terra.maiorValida || 0;
+
+            const totalPushPull = (mSupino > 0 && mTerra > 0) ? (mSupino + mTerra) : 0;
+            const dotsPP = (totalPushPull > 0 && bw !== 999) ? formatarNumeroCSV(calcularDOTS(totalPushPull, bw, insc.sexo)) : '0';
+            const wilksPP = (totalPushPull > 0 && bw !== 999) ? formatarNumeroCSV(calcularWilks(totalPushPull, bw, insc.sexo)) : '0';
+
+            const totalFullPower = (mAgacho > 0 && mSupino > 0 && mTerra > 0) ? (mAgacho + mSupino + mTerra) : 0;
+            const dotsFP = (totalFullPower > 0 && bw !== 999) ? formatarNumeroCSV(calcularDOTS(totalFullPower, bw, insc.sexo)) : '0';
+            const wilksFP = (totalFullPower > 0 && bw !== 999) ? formatarNumeroCSV(calcularWilks(totalFullPower, bw, insc.sexo)) : '0';
+
+            linhas.push([
+                insc.inscricao_id,
+                insc.nome,
+                insc.sexo,
+                insc.cpf,
+                insc.pcd ? 'Sim' : 'Não',
+                insc.equipe,
+                insc.instagram,
+                insc.equipamento,
+                insc.divisoes.join(' + '),
+                insc.categoriaPeso,
+                bwTxt,
+                insc.numeroLote !== 99999 ? insc.numeroLote : '',
+                insc.modalidade,
+                ...extrairColunasMovCSV(insc.movimentos.agachamento, bw, insc.sexo),
+                ...extrairColunasMovCSV(insc.movimentos.supino, bw, insc.sexo),
+                ...extrairColunasMovCSV(insc.movimentos.terra, bw, insc.sexo),
+                formatarNumeroCSV(totalPushPull),
+                dotsPP,
+                wilksPP,
+                formatarNumeroCSV(totalFullPower),
+                dotsFP,
+                wilksFP
+            ]);
+        });
+
+        dispararDownloadCSV(linhas, 'planilha_completa_atletas');
+    }
+
+    // Botão 3: Envia os resultados para o Acervo Estático Oficial do site Brasil Powerlifting
+    async function enviarResultadosParaBrasilPowerlifting() {
+        const evId = document.getElementById('select_evento').value;
+        if (!evId) {
+            alert("Selecione primeiro um campeonato no filtro '1. Campeonato'!");
+            return;
+        }
+
+        const listaInsc = Object.values(mapaInscricoesGlobal);
+        if (listaInsc.length === 0) {
+            alert("Não há atletas ou resultados registrados neste campeonato para enviar.");
+            return;
+        }
+
+        // Verifica se ainda há algum atleta com tentativa não concluída (pendente ou aguardando pedida)
+        let qtdAtletasEmAndamento = 0;
+        listaInsc.forEach(insc => {
+            const pAg = insc.movimentos?.agachamento?.qtdPendentes || 0;
+            const pSup = insc.movimentos?.supino?.qtdPendentes || 0;
+            const pTer = insc.movimentos?.terra?.qtdPendentes || 0;
+            if (pAg > 0 || pSup > 0 || pTer > 0) {
+                qtdAtletasEmAndamento++;
+            }
+        });
+
+        const avisoEmAndamento = qtdAtletasEmAndamento > 0
+            ? `\n⚠️ ATENÇÃO: Detectamos que ainda há ${qtdAtletasEmAndamento} inscrição(ões) com tentativas em andamento/pendentes neste campeonato!\n`
+            : '';
+
+        const confirmar = confirm(
+            `🌐 ENVIAR RESULTADOS PARA O ACERVO BRASIL POWERLIFTING\n` +
+            `${avisoEmAndamento}\n` +
+            `• Os dados finais desta competição serão enviados e publicados no acervo oficial do site Brasil Powerlifting.\n` +
+            `• IMPORTANTE: Caso a competição ainda NÃO tenha terminado, você deverá clicar neste botão novamente após o término para atualizar os resultados finais.\n\n` +
+            `Deseja sincronizar e enviar os resultados desta competição agora?`
+        );
+
+        if (!confirmar) return;
+
+        const btn = document.getElementById('btn_enviar_acervo_bp');
+        const textoOriginal = btn.innerText;
+        btn.disabled = true;
+        btn.innerText = "⏳ Enviando para Brasil Powerlifting...";
+
+        try {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 20000);
+
+            const res = await fetch(`/api/nuvem/publicar-acervo-local/${evId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                signal: controller.signal
+            });
+            clearTimeout(timer);
+
+            const dados = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                throw new Error(dados.erro || `Falha HTTP ${res.status}`);
+            }
+
+            alert(
+                `✅ Resultados enviados com sucesso para o Brasil Powerlifting!\n\n` +
+                `• Campeonato: ${dados.nome_evento || 'Sincronizado'}\n` +
+                `• Atletas processados no acervo: ${dados.qtd_atletas_exportados || listaInsc.length}\n\n` +
+                `Lembre-se: se alguma tentativa ainda for alterada ou julgada hoje, basta clicar neste botão novamente ao encerrar o evento.`
+            );
+        } catch (erro) {
+            alert(
+                `❌ Não foi possível enviar os resultados para o site Brasil Powerlifting:\n\n` +
+                `${erro.message}\n\n` +
+                `Verifique se o seu ID de Organizador e Token de Acesso estão configurados corretamente na aba "☁️ Nuvem" e se há conexão com a internet.`
+            );
+        } finally {
+            btn.disabled = false;
+            btn.innerText = textoOriginal;
+        }
+    }
+</script>
+</body>
+</html>

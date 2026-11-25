@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scoreboard Display - Powerlifting</title>
+    <style>
+        body { font-family: 'Arial Black', Impact, sans-serif; background: #000; color: #fff; margin: 0; display: flex; align-items: center; justify-content: center; height: 100vh; overflow: hidden; position: relative; box-sizing: border-box; }
+        
+        /* Seletor discreto de Plataforma para a TV */
+        .seletor-tv { position: fixed; top: 15px; right: 20px; z-index: 100; opacity: 0.25; transition: opacity 0.3s; background: #111; padding: 8px 12px; border-radius: 6px; border: 1px solid #444; font-family: Arial, sans-serif; display: flex; align-items: center; gap: 10px; }
+        .seletor-tv:hover { opacity: 1; }
+        .seletor-tv select { background: #222; color: #f39c12; border: 1px solid #f39c12; padding: 6px 10px; border-radius: 4px; font-weight: bold; font-size: 14px; cursor: pointer; }
+        .ponto-conexao { width: 10px; height: 10px; border-radius: 50%; background: #2ecc71; display: inline-block; }
+        .ponto-conexao.offline { background: #e74c3c; }
+
+        /* Layout Responsivo (Garante que nomes grandes de 4 linhas nunca cortem as luzes na TV) */
+        .painel { width: 95%; max-width: 1500px; max-height: 94vh; text-align: center; background: #111; border-top: 8px solid #f39c12; border-bottom: 8px solid #f39c12; padding: 3.5vh 2.5vw; box-shadow: 0 0 50px rgba(243, 156, 18, 0.2); border-radius: 10px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; }
+        
+        .movimento { font-size: clamp(22px, 3.2vh, 40px); color: #f39c12; text-transform: uppercase; letter-spacing: 4px; margin-bottom: 2vh; }
+        .nome-atleta { font-size: clamp(36px, 6.2vw, 95px); font-weight: bold; line-height: 1.06; text-transform: uppercase; margin: 0; text-shadow: 4px 4px 0px #333; word-break: break-word; max-height: 26vh; overflow: hidden; }
+        
+        .info-peso { display: flex; justify-content: center; align-items: center; gap: 4vw; margin-top: 2.5vh; flex-wrap: wrap; }
+        .tentativa { background: #333; color: #fff; font-size: clamp(24px, 4.2vh, 45px); padding: 1vh 2.2vw; border-radius: 8px; }
+        .peso { font-size: clamp(42px, 7.5vh, 82px); color: #e74c3c; font-weight: bold; }
+        
+        .luzes-container { display: flex; justify-content: center; gap: 3.5vw; margin-top: 3vh; }
+        .luz { width: clamp(72px, 12.5vh, 125px); height: clamp(72px, 12.5vh, 125px); border-radius: 50%; background: #333; border: 5px solid #222; transition: all 0.3s ease; box-shadow: inset 0 0 20px rgba(0,0,0,0.8); }
+        
+        /* Cores Ativas das Luzes */
+        .luz.branca { background: #fff; border-color: #eee; box-shadow: 0 0 60px rgba(255,255,255,0.8); }
+        .luz.vermelha { background: #e74c3c; border-color: #c0392b; box-shadow: 0 0 60px rgba(231,76,60,0.8); }
+        
+        .resultado-texto { font-size: clamp(30px, 5.2vh, 58px); margin-top: 2.5vh; opacity: 0; transition: opacity 0.5s ease; min-height: 6.5vh; }
+        .resultado-texto.valido { color: #2ecc71; opacity: 1; text-shadow: 0 0 20px rgba(46,204,113,0.5); }
+        .resultado-texto.invalido { color: #e74c3c; opacity: 1; text-shadow: 0 0 20px rgba(231,76,60,0.5); }
+        
+        .msg-espera { font-size: clamp(32px, 5vw, 60px); color: #555; text-transform: uppercase; text-align: center; padding: 20px; }
+    </style>
+</head>
+<body>
+
+    <div class="seletor-tv">
+        <span class="ponto-conexao" id="indicador_rede_tv" title="Connected"></span>
+        <select id="select_plataforma_tv" onchange="trocarPlataformaTV()">
+            <option value="1">📺 Display: Platform 1</option>
+            <option value="2">📺 Display: Platform 2</option>
+            <option value="3">📺 Display: Platform 3</option>
+            <option value="4">📺 Display: Platform 4</option>
+            <option value="5">📺 Display: Platform 5</option>
+        </select>
+    </div>
+
+    <div class="painel" id="tela_conteudo" style="display: none;">
+        <div class="movimento" id="txt_movimento">SQUAT</div>
+        <div class="nome-atleta" id="txt_nome">JOÃO DA SILVA</div>
+        
+        <div class="info-peso">
+            <div class="tentativa" id="txt_tentativa">1ST ATTEMPT</div>
+            <div class="peso" id="txt_peso">205.5 KG</div>
+        </div>
+
+        <div class="luzes-container">
+            <div class="luz" id="luz_esq"></div>
+            <div class="luz" id="luz_cen"></div>
+            <div class="luz" id="luz_dir"></div>
+        </div>
+        
+        <div class="resultado-texto" id="txt_resultado"></div>
+    </div>
+
+    <div class="msg-espera" id="tela_espera">
+        WAITING FOR LIFTER...
+    </div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+    const socket = io({ reconnection: true, reconnectionDelay: 1000, reconnectionAttempts: Infinity });
+    const urlParams = new URLSearchParams(window.location.search);
+    let plataformaTV = parseInt(urlParams.get('plataforma') || localStorage.getItem('powerlifting_plataforma_tv') || '1', 10) || 1;
+    if (plataformaTV < 1 || plataformaTV > 5) plataformaTV = 1;
+
+    window.onerror = function(msg, url, lineNo) {
+        console.error("🛡️ [AIRBAG TELÃO]:", msg, "Linha:", lineNo);
+        return false;
+    };
+
+    window.onload = function() {
+        document.getElementById('select_plataforma_tv').value = String(plataformaTV);
+        socket.emit('solicitar_estado_plataforma', plataformaTV);
+    };
+
+    socket.on('connect', () => {
+        const ind = document.getElementById('indicador_rede_tv');
+        if (ind) ind.className = 'ponto-conexao';
+        socket.emit('solicitar_estado_plataforma', plataformaTV);
+    });
+
+    socket.on('disconnect', () => {
+        const ind = document.getElementById('indicador_rede_tv');
+        if (ind) ind.className = 'ponto-conexao offline';
+    });
+
+    function trocarPlataformaTV() {
+        plataformaTV = parseInt(document.getElementById('select_plataforma_tv').value, 10) || 1;
+        localStorage.setItem('powerlifting_plataforma_tv', String(plataformaTV));
+        socket.emit('solicitar_estado_plataforma', plataformaTV);
+    }
+
+    socket.on('sincronizar_estado', (estado) => {
+        try {
+            if (!estado) return;
+            const platRecebida = parseInt(estado.plataforma || 1, 10);
+            if (platRecebida !== plataformaTV) return;
+
+            if (estado.atletaAtual) {
+                document.getElementById('tela_espera').style.display = 'none';
+                document.getElementById('tela_conteudo').style.display = 'flex';
+                
+                const prefixoPlat = plataformaTV > 1 ? `PLATFORM ${plataformaTV} | ` : '';
+                const movTraduzido = String(estado.movimento || '')
+                    .replace(/agachamento/gi, 'SQUAT')
+                    .replace(/supino/gi, 'BENCH PRESS')
+                    .replace(/levantamento\s+terra|terra/gi, 'DEADLIFT');
+                const batTraduzida = String(estado.bateria || '')
+                    .replace(/bateria\s+[úu]nica/gi, 'SINGLE FLIGHT')
+                    .replace(/baterias/gi, 'FLIGHTS')
+                    .replace(/bateria/gi, 'FLIGHT')
+                    .replace(/[úu]nica/gi, 'SINGLE');
+                document.getElementById('txt_movimento').innerText = `${prefixoPlat}${movTraduzido} - ${batTraduzida}`;
+                
+                const nomeStr = String(estado.atletaAtual.nome || 'LIFTER');
+                const elNome = document.getElementById('txt_nome');
+                elNome.innerText = nomeStr;
+                // Reduz proporcionalmente a fonte caso o nome tenha mais de 28 caracteres
+                if (nomeStr.length > 36) {
+                    elNome.style.fontSize = 'clamp(30px, 4.4vw, 64px)';
+                } else if (nomeStr.length > 24) {
+                    elNome.style.fontSize = 'clamp(34px, 5.2vw, 76px)';
+                } else {
+                    elNome.style.fontSize = 'clamp(36px, 6.2vw, 95px)';
+                }
+
+                const numTentativa = Number(estado.atletaAtual.tentativa) || 1;
+                const sufixoOrdinal = numTentativa === 1 ? 'ST' : (numTentativa === 2 ? 'ND' : (numTentativa === 3 ? 'RD' : 'TH'));
+                document.getElementById('txt_tentativa').innerText = `${numTentativa}${sufixoOrdinal} ATTEMPT`;
+                
+                const pesoNum = Number(estado.atletaAtual.pesoNaBarra);
+                document.getElementById('txt_peso').innerText = (!pesoNum || pesoNum <= 0) ? 'TBD' : `${pesoNum} KG`;
+                
+                const luzes = estado.luzes || { esquerda: null, central: null, direita: null };
+                if (estado.resultado !== null && estado.resultado !== undefined) {
+                    atribuirCorLuz('luz_esq', luzes.esquerda);
+                    atribuirCorLuz('luz_cen', luzes.central);
+                    atribuirCorLuz('luz_dir', luzes.direita);
+                    
+                    const txtRes = document.getElementById('txt_resultado');
+                    txtRes.innerText = estado.resultado === 'valido' ? 'GOOD LIFT' : 'NO LIFT';
+                    txtRes.className = estado.resultado === 'valido' ? 'resultado-texto valido' : 'resultado-texto invalido';
+                } else {
+                    apagarLuzes();
+                }
+
+            } else {
+                document.getElementById('tela_espera').style.display = 'block';
+                document.getElementById('tela_conteudo').style.display = 'none';
+            }
+        } catch (erro) {
+            console.error("Erro ao atualizar Telão:", erro);
+        }
+    });
+
+    function atribuirCorLuz(idElemento, valor) {
+        const elemento = document.getElementById(idElemento);
+        if (!elemento) return;
+        if (valor === 1) elemento.className = 'luz branca';
+        else if (valor === 0) elemento.className = 'luz vermelha';
+        else elemento.className = 'luz';
+    }
+
+    function apagarLuzes() {
+        document.getElementById('luz_esq').className = 'luz';
+        document.getElementById('luz_cen').className = 'luz';
+        document.getElementById('luz_dir').className = 'luz';
+        document.getElementById('txt_resultado').className = 'resultado-texto';
+        document.getElementById('txt_resultado').innerText = ''; 
+    }
+
+    // Heartbeat de segurança para Smart TVs
+    setInterval(() => {
+        if (socket.connected) {
+            socket.emit('solicitar_estado_plataforma', plataformaTV);
+        }
+    }, 8000);
+</script>
+</body>
+</html>

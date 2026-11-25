@@ -1,0 +1,1320 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciar Baterias, Remanejamentos e Rodadas Avulsas</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #eef2f3; margin: 0; }
+        .container { max-width: 1020px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .painel-topo { background: #ecf0f1; padding: 15px; border-radius: 5px; margin-bottom: 20px; border-left: 5px solid #9b59b6; display: flex; gap: 15px; flex-wrap: wrap; }
+        .painel-topo > div { flex: 1; min-width: 220px; }
+        .painel-topo select { font-size: 16px; padding: 10px; width: 100%; border: 1px solid #bdc3c7; border-radius: 4px; font-weight: bold; margin-top: 5px; background: white; }
+        
+        h1, h2 { color: #2c3e50; border-bottom: 2px solid #9b59b6; padding-bottom: 10px; margin-top: 0; }
+
+        /* Aviso Radar de Atletas Sem Bateria (Estilo Mesa de Controle) */
+        .aviso-sem-bateria { display: none; background: #e67e22; color: white; padding: 15px 18px; border-radius: 8px; margin-bottom: 20px; font-weight: bold; box-shadow: 0 2px 6px rgba(0,0,0,0.2); line-height: 1.5; }
+        
+        /* Abas de Modo (Por Categoria vs Remanejar Individual / Bateria Avulsa) */
+        .abas-modo { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        .btn-aba { flex: 1; min-width: 240px; padding: 14px; font-size: 15px; font-weight: bold; border: 2px solid #9b59b6; border-radius: 6px; cursor: pointer; background: #fff; color: #8e44ad; transition: 0.2s; }
+        .btn-aba.ativa { background: #9b59b6; color: #fff; box-shadow: 0 3px 8px rgba(155, 89, 182, 0.3); }
+
+        /* Painel de Baterias Existentes (Filtro no Topo e Exclusão) */
+        .painel-existentes { background: #f4ecf7; border: 1px solid #d7bde2; padding: 15px; border-radius: 6px; margin-bottom: 20px; display: none; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+        .painel-existentes > div { flex: 2; min-width: 240px; }
+        .painel-existentes select { width: 100%; padding: 10px; font-size: 15px; border: 1px solid #9b59b6; border-radius: 4px; font-weight: bold; background: white; margin-top: 5px; }
+        .btn-secundario { background: #34495e; color: white; border: none; padding: 11px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; }
+        .btn-secundario:hover { background: #2c3e50; }
+        .btn-excluir { background: #e74c3c; color: white; border: none; padding: 11px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; }
+        .btn-excluir:hover { background: #c0392b; }
+        .btn-excluir:disabled { background: #95a5a6; cursor: not-allowed; }
+
+        .barra-selecao-rapida { display: none; gap: 10px; margin-bottom: 10px; }
+        .btn-mini { background: #ecf0f1; color: #2c3e50; border: 1px solid #bdc3c7; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; }
+        .btn-mini:hover { background: #dfe6e9; }
+
+        /* Painel de Filtros de Cartões de Grupos */
+        .painel-filtros-grupos { background: #f8f9fa; border: 1px solid #d6dbdf; border-left: 5px solid #8e44ad; border-radius: 6px; padding: 15px; margin-bottom: 15px; display: none; }
+        .grid-filtros-grupos { display: grid; grid-template-columns: repeat(auto-fit, minmax(175px, 1fr)); gap: 12px; }
+        .grid-filtros-grupos label { font-size: 12px; font-weight: bold; color: #555; display: block; margin-bottom: 4px; text-transform: uppercase; }
+        .grid-filtros-grupos select { width: 100%; padding: 8px 10px; font-size: 13px; border: 1px solid #bdc3c7; border-radius: 4px; background: white; font-weight: bold; color: #2c3e50; box-sizing: border-box; }
+        .barra-acoes-filtro { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 14px; padding-top: 12px; border-top: 1px solid #e5e8e8; }
+        .resumo-selecao-grupos { font-size: 13px; font-weight: bold; color: #2c3e50; background: #e8f8f5; border: 1px solid #a3e4d7; padding: 6px 12px; border-radius: 4px; }
+
+        .grid-grupos { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 15px; margin-top: 15px; }
+        .card-grupo { background: #f8f9fa; border: 1px solid #ddd; border-radius: 6px; padding: 15px; cursor: pointer; position: relative; transition: 0.15s; display: block; }
+        .card-grupo:hover { border-color: #9b59b6; box-shadow: 0 2px 8px rgba(155, 89, 182, 0.15); }
+        .card-grupo input[type="checkbox"] { position: absolute; right: 15px; top: 15px; width: 20px; height: 20px; cursor: pointer; }
+        
+        .badge-topo { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; padding-right: 25px; }
+        .badge-mod { font-size: 11px; background: #8e44ad; color: white; padding: 2px 7px; border-radius: 4px; font-weight: bold; text-transform: uppercase; }
+        .badge-equip { font-size: 11px; background: #2c3e50; color: #f1c40f; padding: 2px 7px; border-radius: 4px; font-weight: bold; text-transform: uppercase; }
+        
+        .badge-sexo.m { color: #3498db; font-weight: bold; }
+        .badge-sexo.f { color: #e74c3c; font-weight: bold; }
+        .badge-qtd { background: #34495e; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; }
+        
+        .rodape-card { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; align-items: center; }
+        .badge-bateria { display: inline-block; background: #2ecc71; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+        .sem-bateria { background: #e74c3c; }
+        .badge-plataforma { display: inline-block; background: #3498db; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+
+        .painel-acao { margin-top: 25px; background: #fdfdfd; padding: 20px; border: 2px dashed #9b59b6; border-radius: 8px; display: none; gap: 15px; align-items: flex-end; flex-wrap: wrap; }
+        .painel-acao > div { flex: 1; min-width: 200px; }
+        .painel-acao input[type="text"], .painel-acao input[type="number"], .painel-acao select { width: 100%; padding: 12px; font-size: 16px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; margin-top: 5px; background: white; }
+        .btn-salvar { background: #9b59b6; color: white; font-size: 16px; padding: 13px 25px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .btn-salvar:hover { background: #8e44ad; }
+        .btn-salvar:disabled { background: #95a5a6; cursor: not-allowed; }
+
+        /* Tabela de Remanejamento Individual e Bateria Avulsa */
+        .tabela-atletas-ind { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 14px; }
+        .tabela-atletas-ind th, .tabela-atletas-ind td { padding: 10px; border: 1px solid #ddd; text-align: left; }
+        .tabela-atletas-ind th { background: #34495e; color: white; }
+        .tabela-atletas-ind tr:hover { background: #f4ecf7; }
+        .box-avulsa-config { background: #fff8e1; border: 2px solid #f39c12; padding: 15px; border-radius: 6px; margin-top: 10px; width: 100%; box-sizing: border-box; }
+        .botoes-acao-ind { display: flex; gap: 12px; width: 100%; flex-wrap: wrap; margin-top: 5px; }
+        .aviso-filtro-bateria-ativa { display: none; width: 100%; background: #e8f8f5; border: 1px solid #1abc9c; color: #0e6251; padding: 8px 12px; border-radius: 4px; font-size: 13px; font-weight: bold; box-sizing: border-box; }
+    </style>
+</head>
+<body>
+<!-- Barra de Navegação Global -->
+<nav style="background: #2c3e50; padding: 15px; margin-bottom: 20px; display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+    <a href="/" style="color: white; text-decoration: none; font-weight: bold;">🏠 Início</a>
+    <a href="/criar-evento" style="color: #bdc3c7; text-decoration: none;">1. Evento</a>
+    <a href="/inscricao" style="color: #bdc3c7; text-decoration: none;">2. Inscrição</a>
+    <a href="/baterias" style="color: #3498db; text-decoration: none; font-weight: bold;">3. Baterias</a>
+    <a href="/pesagem" style="color: #bdc3c7; text-decoration: none;">4. Pesagem</a>
+    <a href="/admin" style="color: #bdc3c7; text-decoration: none;">5. Mesa</a>
+    <a href="/display" style="color: #2ecc71; text-decoration: none;">6. Telão</a>
+    <a href="/resultados" style="color: #f1c40f; text-decoration: none;">7. Resultados 🏆</a>
+    <a href="/nuvem" style="color: #1abc9c; text-decoration: none; font-weight: bold;">☁️ Nuvem</a>
+</nav>
+
+<div class="container">
+    <div class="painel-topo">
+        <div>
+            <label style="font-weight:bold;">1. Campeonato</label>
+            <select id="select_evento" onchange="aoMudarEvento()">
+                <option value="">-- Carregando... --</option>
+            </select>
+        </div>
+        <div>
+            <label style="font-weight:bold;">2. Movimento em Visualização:</label>
+            <select id="select_movimento" onchange="recarregarTudoBaterias(false)">
+                <option value="agachamento">Agachamento</option>
+                <option value="supino">Supino</option>
+                <option value="terra">Levantamento Terra</option>
+            </select>
+        </div>
+    </div>
+
+    <h1>Gerenciar Baterias, Remanejamentos e Rodadas Avulsas</h1>
+
+    <!-- AVISO DE ATLETAS SEM BATERIA (RADAR ESTILO MESA DE CONTROLE) -->
+    <div id="aviso_sem_bateria" class="aviso-sem-bateria">
+        ⚠️ AVISO: <span id="texto_sem_bateria"></span>
+    </div>
+
+    <!-- FILTRO E GERENCIADOR DE BATERIAS JÁ CRIADAS NESTE MOVIMENTO -->
+    <div class="painel-existentes" id="painel_existentes">
+        <div>
+            <label style="font-weight: bold; color: #2c3e50; font-size: 14px;">📂 Baterias Já Criadas Neste Movimento (Selecione para filtrar a página):</label>
+            <select id="select_bateria_existente" onchange="aoFiltrarPorBateriaExistente()">
+                <option value="">-- Mostrar Todas as Baterias / Todos os Atletas --</option>
+            </select>
+        </div>
+        <button class="btn-secundario" onclick="limparFiltroBateriaExistente()" title="Volta a mostrar todas as categorias e atletas deste movimento">🔄 Mostrar Todas</button>
+        <button class="btn-secundario" onclick="marcarCartoesDaBateriaSelecionada()" title="Marca automaticamente todos os grupos que estão nesta bateria">☑️ Selecionar Grupos Desta Bateria</button>
+        <button class="btn-excluir" id="btn_excluir_bateria" onclick="excluirBateriaSelecionada()" title="Remove esta bateria apenas deste movimento e deixa os atletas sem bateria">🗑️ Excluir Bateria</button>
+        <div class="aviso-filtro-bateria-ativa" id="aviso_filtro_bateria_ativa"></div>
+    </div>
+
+    <!-- ABAS DE MODO -->
+    <div class="abas-modo" id="abas_modo" style="display: none;">
+        <button class="btn-aba ativa" id="btn_aba_grupos" onclick="alternarAbaModo('GRUPOS')">
+            📦 1. Agrupar por Categorias (Padrão)
+        </button>
+        <button class="btn-aba" id="btn_aba_individual" onclick="alternarAbaModo('INDIVIDUAL')">
+            🔀 2. Remanejar Atletas / Criar Bateria Avulsa (PR / 4ª Tentativa)
+        </button>
+    </div>
+
+    <!-- MODO 1: AGRUPAMENTO POR CATEGORIAS -->
+    <div id="secao_modo_grupos">
+        <div class="painel-filtros-grupos" id="barra_selecao_rapida">
+            <div class="grid-filtros-grupos">
+                <div>
+                    <label>Sexo</label>
+                    <select id="filtro_grupo_sexo" onchange="aplicarFiltrosGrupos()">
+                        <option value="TODOS">Todos (Masc. e Fem.)</option>
+                        <option value="M">Masculino</option>
+                        <option value="F">Feminino</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Divisão de Idade</label>
+                    <select id="filtro_grupo_divisao" onchange="aplicarFiltrosGrupos()">
+                        <option value="TODAS">Todas as Divisões</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Categoria / Faixa de Peso</label>
+                    <select id="filtro_grupo_peso" onchange="aplicarFiltrosGrupos()">
+                        <option value="TODAS">Todas as Categorias</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Modalidade</label>
+                    <select id="filtro_grupo_modalidade" onchange="aplicarFiltrosGrupos()">
+                        <option value="TODAS">Todas as Modalidades</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Equipamento</label>
+                    <select id="filtro_grupo_equipamento" onchange="aplicarFiltrosGrupos()">
+                        <option value="TODOS">Todos os Equipamentos</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Status de Bateria</label>
+                    <select id="filtro_grupo_status" onchange="aoMudarFiltroStatusGrupo()">
+                        <option value="TODOS">Todos (Com e Sem Bateria)</option>
+                        <option value="SEM_BATERIA">🔴 Apenas Sem Bateria</option>
+                        <option value="COM_BATERIA">🟢 Apenas Com Bateria</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="barra-acoes-filtro">
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <button type="button" class="btn-mini" style="background: #8e44ad; color: white; border-color: #732d91;" onclick="alternarTodosCartoes(true)">☑️ Marcar Cartões Visíveis</button>
+                    <button type="button" class="btn-mini" onclick="alternarTodosCartoes(false)">⬜ Desmarcar Visíveis</button>
+                    <button type="button" class="btn-mini" onclick="desmarcarTodosCartoesGeral()">🗑️ Desmarcar Tudo</button>
+                    <button type="button" class="btn-mini" onclick="limparFiltrosGrupos()">🔄 Limpar Filtros</button>
+                </div>
+                <div class="resumo-selecao-grupos" id="resumo_selecao_grupos">
+                    Exibindo 0 grupo(s) | 0 marcado(s)
+                </div>
+            </div>
+        </div>
+
+        <div class="grid-grupos" id="container_grupos"></div>
+
+        <div class="painel-acao" id="painel_acao">
+            <div style="flex: 2; min-width: 230px;">
+                <label style="font-weight: bold; color: #8e44ad;">📂 Usar Bateria Já Existente (Opcional)</label>
+                <select id="select_bateria_destino_grupos" onchange="aoEscolherBateriaDestinoGrupos()">
+                    <option value="">-- Digitar nova ao lado ou escolher existente... --</option>
+                </select>
+            </div>
+            <div style="flex: 2; min-width: 230px;">
+                <label style="font-weight: bold;">Nome da Rodada / Bateria (Ex: Bateria A)</label>
+                <input type="text" id="nome_bateria" placeholder="Digite o nome ou escolha ao lado..." oninput="aoDigitarNomeBateriaGrupos()">
+            </div>
+            <div style="flex: 1; min-width: 160px;">
+                <label style="font-weight: bold;">Plataforma de Competição</label>
+                <select id="select_plataforma">
+                    <option value="1">Plataforma 1</option>
+                </select>
+            </div>
+            <button class="btn-salvar" id="btn_agrupar" onclick="aplicarBateria()">Agrupar Selecionados</button>
+        </div>
+    </div>
+
+    <!-- MODO 2: REMANEJAR ATLETA INDIVIDUAL E BATERIAS AVULSAS (4ª TENTATIVA / PR / DESEMPATE) -->
+    <div id="secao_modo_individual" style="display: none;">
+        <p style="color: #555; margin-top: 0;">
+            Selecione atletas específicos abaixo para <strong>mover um atleta atrasado para uma bateria posterior</strong>, <strong>remover da bateria um atleta que faltou</strong> ou montar uma <strong>Bateria Avulsa (4ª Tentativa / Quebra de Recorde / Desempate)</strong> neste movimento.
+        </p>
+
+        <div style="display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; align-items: center;">
+            <input type="text" id="filtro_atleta_ind" placeholder="🔍 Buscar atleta por nome, bateria ou categoria..." oninput="renderizarTabelaAtletasIndividuais()" style="flex: 2; min-width: 220px; padding: 9px; border: 1px solid #ccc; border-radius: 4px;">
+            <button class="btn-mini" onclick="alternarTodosIndividuais(true)">☑️ Marcar Visíveis</button>
+            <button class="btn-mini" onclick="alternarTodosIndividuais(false)">⬜ Desmarcar Todos</button>
+        </div>
+
+        <div style="max-height: 380px; overflow-y: auto; border: 1px solid #ccc; border-radius: 6px;">
+            <table class="tabela-atletas-ind">
+                <thead>
+                    <tr>
+                        <th width="5%" style="text-align:center;">☑️</th>
+                        <th width="30%">Atleta</th>
+                        <th width="25%">Modalidade / Categoria</th>
+                        <th width="22%">Bateria Atual</th>
+                        <th width="18%">Progresso no Mov.</th>
+                    </tr>
+                </thead>
+                <tbody id="tbody_atletas_individuais"></tbody>
+            </table>
+        </div>
+
+        <div class="painel-acao" style="display: flex; border-color: #e67e22;">
+            <div style="flex: 2; min-width: 230px;">
+                <label style="font-weight: bold; color: #d35400;">📂 Usar Bateria Já Existente (Opcional)</label>
+                <select id="select_bateria_destino_ind" onchange="aoEscolherBateriaDestinoInd()">
+                    <option value="">-- Digitar nova ao lado ou escolher existente... --</option>
+                </select>
+            </div>
+            <div style="flex: 2; min-width: 230px;">
+                <label style="font-weight: bold;">Bateria de Destino (Existente ou Nova Avulsa)</label>
+                <input type="text" id="nome_bateria_ind" placeholder="Ex: Bateria B ou Bateria Avulsa PR" oninput="aoDigitarNomeBateriaInd()">
+            </div>
+            <div style="flex: 1; min-width: 160px;">
+                <label style="font-weight: bold;">Plataforma</label>
+                <select id="select_plataforma_ind">
+                    <option value="1">Plataforma 1</option>
+                </select>
+            </div>
+
+            <div class="box-avulsa-config">
+                <label style="cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: bold; color: #d35400; font-size: 15px; margin: 0;">
+                    <input type="checkbox" id="check_modo_avulsa_extra" onchange="alternarOpcaoPesoExtra()" style="width: 18px; height: 18px;">
+                    🔥 Habilitar Rodada Extra / Bateria Avulsa (Gera 4ª Tentativa / Tentativa Extra se o atleta já concluiu as 3 tentativas)
+                </label>
+                <div id="bloco_peso_extra" style="display: none; margin-top: 10px;">
+                    <label style="font-size: 13px; color: #555;">Carga Inicial da Tentativa Extra (kg) — Deixe 0 para definir direto na Mesa:</label>
+                    <input type="number" id="peso_inicial_extra" step="0.5" value="0" onwheel="this.blur()" style="max-width: 180px; padding: 8px;">
+                </div>
+            </div>
+
+            <div class="botoes-acao-ind">
+                <button class="btn-salvar" id="btn_remanejar_ind" style="background: #e67e22; flex: 2; min-width: 260px;" onclick="aplicarRemanejamentoOuAvulsa()">
+                    🔀 Aplicar Remanejamento / Criar Bateria Avulsa
+                </button>
+                <button class="btn-salvar" id="btn_remover_da_bateria_ind" style="background: #c0392b; flex: 1; min-width: 220px;" onclick="removerAtletasMarcadosDaBateria()" title="Remove os atletas marcados da bateria atual neste movimento e deixa como Sem Bateria">
+                    🚫 Remover da Bateria (Atleta Faltou)
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+    const socket = io({ reconnection: true });
+    let abaAtual = 'GRUPOS';
+    let gruposAtuais = [];
+    let atletasIndividuais = [];
+    let idsIndividuaisMarcados = new Set();
+    let bateriasCriadas = [];
+    let numPlataformasEvento = 1;
+    let regrasEventoBaterias = null;
+    let timerDebounceBaterias = null;
+
+    window.onerror = function(msg, url, lineNo) {
+        console.error("🛡️ [AIRBAG BATERIAS]:", msg, "Linha:", lineNo);
+        return false;
+    };
+
+    function escapeHtml(texto) {
+        if (texto === undefined || texto === null) return '';
+        return String(texto)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function gerarChaveUnicaGrupo(g) {
+        if (!g) return '';
+        return `${g.sexo}|${g.divisao_escolhida}|${g.categoria_peso_escolhida}|${g.modalidade_escolhida}|${g.equipamento_escolhido || 'Raw'}|${g.bateria || ''}|${g.plataforma || 1}`;
+    }
+
+    async function fetchSeguro(url, opcoes = {}, timeoutMs = 8000) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            const res = await fetch(url, { ...opcoes, signal: controller.signal });
+            clearTimeout(timer);
+            const dados = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(dados.erro || `Erro HTTP ${res.status}`);
+            return dados;
+        } catch (erro) {
+            clearTimeout(timer);
+            throw erro;
+        }
+    }
+
+    // Atualiza o aviso no topo indicando se há atletas sem bateria atribuída neste movimento
+    function atualizarAvisoAtletasSemBateria() {
+        const banner = document.getElementById('aviso_sem_bateria');
+        const texto = document.getElementById('texto_sem_bateria');
+        const eventoId = document.getElementById('select_evento').value;
+        const movimento = document.getElementById('select_movimento').value;
+
+        if (!banner || !texto || !eventoId) {
+            if (banner) banner.style.display = 'none';
+            return;
+        }
+
+        const listaSemBateria = atletasIndividuais.filter(a => !a.bateria || String(a.bateria).trim() === '');
+        if (listaSemBateria.length > 0) {
+            const nomes = listaSemBateria.map(a => a.nome || 'Atleta').join(' | ');
+            texto.innerText = `Existem ${listaSemBateria.length} atleta(s) que não foram atribuídos a uma bateria em ${movimento.toUpperCase()}: ${nomes}`;
+            banner.style.display = 'block';
+        } else {
+            banner.style.display = 'none';
+        }
+    }
+
+    function agendarRecarregamentoBaterias(info) {
+        const evId = document.getElementById('select_evento').value;
+        if (!evId) return;
+        if (info && info.evento_id && String(info.evento_id) !== String(evId)) return;
+
+        clearTimeout(timerDebounceBaterias);
+        timerDebounceBaterias = setTimeout(() => {
+            recarregarTudoBaterias(true);
+        }, 120);
+    }
+
+    socket.on('dados_atletas_atualizados', (info) => {
+        agendarRecarregamentoBaterias(info);
+    });
+
+    socket.on('fila_atualizada', (info) => {
+        agendarRecarregamentoBaterias(info);
+    });
+
+    function alternarAbaModo(modo) {
+        abaAtual = modo;
+        document.getElementById('btn_aba_grupos').classList.toggle('ativa', modo === 'GRUPOS');
+        document.getElementById('btn_aba_individual').classList.toggle('ativa', modo === 'INDIVIDUAL');
+        document.getElementById('secao_modo_grupos').style.display = modo === 'GRUPOS' ? 'block' : 'none';
+        document.getElementById('secao_modo_individual').style.display = modo === 'INDIVIDUAL' ? 'block' : 'none';
+        aplicarFiltrosGrupos();
+        renderizarTabelaAtletasIndividuais();
+    }
+
+    function alternarOpcaoPesoExtra() {
+        const ativo = document.getElementById('check_modo_avulsa_extra').checked;
+        document.getElementById('bloco_peso_extra').style.display = ativo ? 'block' : 'none';
+    }
+
+    function formatarDivisoesCard(divisaoSalva) {
+        if (!divisaoSalva) return 'Open';
+        const str = String(divisaoSalva).trim();
+        if (str.startsWith('[')) {
+            try {
+                const arr = JSON.parse(str);
+                return Array.isArray(arr) ? arr.join(' + ') : str;
+            } catch (e) {
+                return str;
+            }
+        }
+        return str;
+    }
+
+    function extrairArrayDivisoesGrupo(divisaoSalva) {
+        if (!divisaoSalva) return ['Open'];
+        if (Array.isArray(divisaoSalva)) return divisaoSalva.length > 0 ? divisaoSalva : ['Open'];
+        const str = String(divisaoSalva).trim();
+        if (str.startsWith('[')) {
+            try {
+                const arr = JSON.parse(str);
+                return Array.isArray(arr) && arr.length > 0 ? arr : ['Open'];
+            } catch (e) {
+                return [str];
+            }
+        }
+        return [str];
+    }
+
+    function extrairDadosPesoCategoria(catStr) {
+        const bruto = String(catStr || '').trim();
+        if (!bruto || bruto.toLowerCase() === 'livre') {
+            return { raw: bruto || 'Livre', ehLivre: true, ehMais: false, valor: null };
+        }
+        const limpo = bruto.replace(',', '.');
+        const ehMais = limpo.startsWith('+');
+        const num = parseFloat(limpo.replace(/[^0-9.]/g, ''));
+        if (isNaN(num) || num <= 0) {
+            return { raw: bruto, ehLivre: true, ehMais: false, valor: null };
+        }
+        return { raw: bruto, ehLivre: false, ehMais, valor: num };
+    }
+
+    function atualizarOpcoesFiltrosGrupos() {
+        const selDiv = document.getElementById('filtro_grupo_divisao');
+        const selPeso = document.getElementById('filtro_grupo_peso');
+        const selMod = document.getElementById('filtro_grupo_modalidade');
+        const selEquip = document.getElementById('filtro_grupo_equipamento');
+
+        const valDivAntes = selDiv.value;
+        const valPesoAntes = selPeso.value;
+        const valModAntes = selMod.value;
+        const valEquipAntes = selEquip.value;
+
+        const divisoesSet = new Set();
+        const modalidadesSet = new Set();
+        const equipamentosSet = new Set();
+        const categoriasExatasSet = new Set();
+        const limitesNumericosSet = new Set();
+
+        if (regrasEventoBaterias) {
+            (regrasEventoBaterias.divisoes_idade || []).forEach(d => {
+                if (d) divisoesSet.add(String(d).trim());
+            });
+            (regrasEventoBaterias.modalidades || []).forEach(m => {
+                if (m) modalidadesSet.add(String(m).trim());
+            });
+            (regrasEventoBaterias.equipamentos || []).forEach(eq => {
+                if (eq) equipamentosSet.add(String(eq).trim());
+            });
+        }
+
+        gruposAtuais.forEach(g => {
+            extrairArrayDivisoesGrupo(g.divisao_escolhida).forEach(d => divisoesSet.add(d));
+            if (g.modalidade_escolhida) modalidadesSet.add(g.modalidade_escolhida);
+            equipamentosSet.add(g.equipamento_escolhido || 'Raw');
+
+            const catPeso = String(g.categoria_peso_escolhida || 'Livre').trim();
+            categoriasExatasSet.add(catPeso);
+            const infoPeso = extrairDadosPesoCategoria(catPeso);
+            if (!infoPeso.ehLivre && infoPeso.valor !== null) {
+                limitesNumericosSet.add(infoPeso.valor);
+            }
+        });
+
+        let htmlDiv = '<option value="TODAS">Todas as Divisões</option>';
+        Array.from(divisoesSet).sort().forEach(d => {
+            htmlDiv += `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`;
+        });
+        selDiv.innerHTML = htmlDiv;
+        if (Array.from(selDiv.options).some(o => o.value === valDivAntes)) selDiv.value = valDivAntes;
+
+        let htmlMod = '<option value="TODAS">Todas as Modalidades</option>';
+        Array.from(modalidadesSet).sort().forEach(m => {
+            htmlMod += `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`;
+        });
+        selMod.innerHTML = htmlMod;
+        if (Array.from(selMod.options).some(o => o.value === valModAntes)) selMod.value = valModAntes;
+
+        let htmlEquip = '<option value="TODOS">Todos os Equipamentos</option>';
+        Array.from(equipamentosSet).sort().forEach(eq => {
+            htmlEquip += `<option value="${escapeHtml(eq)}">${escapeHtml(eq)}</option>`;
+        });
+        selEquip.innerHTML = htmlEquip;
+        if (Array.from(selEquip.options).some(o => o.value === valEquipAntes)) selEquip.value = valEquipAntes;
+
+        const limitesOrdenados = Array.from(limitesNumericosSet).sort((a, b) => a - b);
+        let htmlPeso = '<option value="TODAS">Todas as Categorias de Peso</option>';
+
+        if (limitesOrdenados.length > 0) {
+            htmlPeso += '<optgroup label="📏 Filtrar por Faixa (Até / Acima)">';
+            limitesOrdenados.forEach(lim => {
+                htmlPeso += `<option value="ATE:${lim}">⬇️ Até ${lim} kg (todas ≤ ${lim}kg)</option>`;
+            });
+            limitesOrdenados.forEach(lim => {
+                htmlPeso += `<option value="ACIMA:${lim}">⬆️ Acima de ${lim} kg (todas > ${lim}kg)</option>`;
+            });
+            htmlPeso += '</optgroup>';
+        }
+
+        const categoriasOrdenadas = Array.from(categoriasExatasSet).sort((a, b) => {
+            const ia = extrairDadosPesoCategoria(a);
+            const ib = extrairDadosPesoCategoria(b);
+            if (ia.ehLivre !== ib.ehLivre) return ia.ehLivre ? 1 : -1;
+            if (ia.ehMais !== ib.ehMais) return ia.ehMais ? 1 : -1;
+            return (ia.valor || 0) - (ib.valor || 0);
+        });
+
+        htmlPeso += '<optgroup label="🎯 Categoria Exata">';
+        categoriasOrdenadas.forEach(cat => {
+            const labelCat = cat.toLowerCase() === 'livre' ? 'Apenas Livre' : `Apenas ${escapeHtml(cat)} kg`;
+            htmlPeso += `<option value="EXATO:${escapeHtml(cat)}">${labelCat}</option>`;
+        });
+        htmlPeso += '</optgroup>';
+
+        selPeso.innerHTML = htmlPeso;
+        if (Array.from(selPeso.options).some(o => o.value === valPesoAntes)) selPeso.value = valPesoAntes;
+    }
+
+    function aoMudarFiltroStatusGrupo() {
+        const fStatus = document.getElementById('filtro_grupo_status').value;
+        if (fStatus === 'SEM_BATERIA') {
+            const selTopo = document.getElementById('select_bateria_existente');
+            if (selTopo && selTopo.value !== '') {
+                selTopo.value = '';
+            }
+        }
+        atualizarBannerFiltroBateriaTopo();
+        aplicarFiltrosGrupos();
+    }
+
+    function grupoPassaNosFiltros(g) {
+        if (!g) return false;
+
+        // 1. Filtro de Bateria Já Criada selecionada no topo
+        const filtroBatTopo = obterBateriaEPlataformaSelecionadaNoDropdown();
+        if (filtroBatTopo && filtroBatTopo.bateria) {
+            if (g.bateria !== filtroBatTopo.bateria || Number(g.plataforma || 1) !== filtroBatTopo.plataforma) {
+                return false;
+            }
+        }
+
+        // 2. Demais filtros da barra de grupos
+        const fSexo = document.getElementById('filtro_grupo_sexo').value;
+        const fDiv = document.getElementById('filtro_grupo_divisao').value;
+        const fPeso = document.getElementById('filtro_grupo_peso').value;
+        const fMod = document.getElementById('filtro_grupo_modalidade').value;
+        const fEquip = document.getElementById('filtro_grupo_equipamento').value;
+        const fStatus = document.getElementById('filtro_grupo_status').value;
+
+        if (fSexo !== 'TODOS' && g.sexo !== fSexo) return false;
+
+        if (fDiv !== 'TODAS') {
+            const divsDoGrupo = extrairArrayDivisoesGrupo(g.divisao_escolhida);
+            if (!divsDoGrupo.includes(fDiv)) return false;
+        }
+
+        if (fMod !== 'TODAS' && g.modalidade_escolhida !== fMod) return false;
+        if (fEquip !== 'TODOS' && (g.equipamento_escolhido || 'Raw') !== fEquip) return false;
+
+        if (fStatus === 'SEM_BATERIA' && g.bateria) return false;
+        if (fStatus === 'COM_BATERIA' && !g.bateria) return false;
+
+        if (fPeso !== 'TODAS') {
+            const catAtual = String(g.categoria_peso_escolhida || 'Livre').trim();
+            if (fPeso.startsWith('EXATO:')) {
+                const alvo = fPeso.slice(6);
+                if (catAtual !== alvo) return false;
+            } else if (fPeso.startsWith('ATE:')) {
+                const teto = parseFloat(fPeso.slice(4));
+                const info = extrairDadosPesoCategoria(catAtual);
+                if (info.ehLivre || info.ehMais || info.valor === null || info.valor > teto) return false;
+            } else if (fPeso.startsWith('ACIMA:')) {
+                const piso = parseFloat(fPeso.slice(6));
+                const info = extrairDadosPesoCategoria(catAtual);
+                if (info.ehLivre || info.valor === null) return false;
+                if (info.ehMais) {
+                    if (info.valor < piso) return false;
+                } else {
+                    if (info.valor <= piso) return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    function atualizarBannerFiltroBateriaTopo() {
+        const aviso = document.getElementById('aviso_filtro_bateria_ativa');
+        if (!aviso) return;
+        const info = obterBateriaEPlataformaSelecionadaNoDropdown();
+        if (info && info.bateria) {
+            const platTxt = numPlataformasEvento > 1 ? ` (Plataforma ${info.plataforma})` : '';
+            aviso.innerHTML = `🔍 Exibindo apenas categorias e atletas pertencentes à bateria <strong>"${escapeHtml(info.bateria)}"${escapeHtml(platTxt)}</strong>. Para ver todos novamente, clique em <strong>"🔄 Mostrar Todas"</strong>.`;
+            aviso.style.display = 'block';
+        } else {
+            aviso.style.display = 'none';
+            aviso.innerHTML = '';
+        }
+    }
+
+    function aplicarFiltrosGrupos() {
+        const cards = document.querySelectorAll('#container_grupos .card-grupo');
+        let visiveis = 0;
+
+        cards.forEach(card => {
+            const chk = card.querySelector('.chk-grupo');
+            const idx = chk ? Number(chk.value) : -1;
+            const g = gruposAtuais[idx];
+            const mostrar = grupoPassaNosFiltros(g);
+            card.style.display = mostrar ? 'block' : 'none';
+            if (mostrar) visiveis++;
+        });
+
+        let msgVazio = document.getElementById('msg_nenhum_grupo_filtro');
+        if (visiveis === 0 && gruposAtuais.length > 0) {
+            if (!msgVazio) {
+                msgVazio = document.createElement('p');
+                msgVazio.id = 'msg_nenhum_grupo_filtro';
+                msgVazio.style.cssText = 'grid-column: 1 / -1; text-align: center; color: #7f8c8d; padding: 20px; background: #fff; border: 1px dashed #ccc; border-radius: 6px; margin: 0;';
+                msgVazio.innerText = 'Nenhum cartão de categoria corresponde aos filtros selecionados acima.';
+                document.getElementById('container_grupos').appendChild(msgVazio);
+            }
+            msgVazio.style.display = 'block';
+        } else if (msgVazio) {
+            msgVazio.style.display = 'none';
+        }
+
+        atualizarResumoSelecaoGrupos();
+    }
+
+    function atualizarResumoSelecaoGrupos() {
+        const elResumo = document.getElementById('resumo_selecao_grupos');
+        if (!elResumo) return;
+
+        const cards = document.querySelectorAll('#container_grupos .card-grupo');
+        let visiveis = 0;
+        let marcadosTotal = 0;
+        let marcadosOcultos = 0;
+        let atletasMarcados = 0;
+
+        cards.forEach(card => {
+            const visivel = card.style.display !== 'none';
+            if (visivel) visiveis++;
+
+            const chk = card.querySelector('.chk-grupo');
+            if (chk && chk.checked) {
+                marcadosTotal++;
+                if (!visivel) marcadosOcultos++;
+                const g = gruposAtuais[Number(chk.value)];
+                if (g) atletasMarcados += Number(g.qtd_atletas) || 0;
+            }
+        });
+
+        const avisoOcultos = marcadosOcultos > 0 ? ` (${marcadosOcultos} oculto[s] pelo filtro)` : '';
+        elResumo.innerText = `Exibindo ${visiveis} de ${gruposAtuais.length} grupo(s) | 📌 ${marcadosTotal} marcado(s) (${atletasMarcados} atletas)${avisoOcultos}`;
+    }
+
+    window.onload = async function() {
+        try {
+            const eventos = await fetchSeguro('/api/eventos');
+            const select = document.getElementById('select_evento');
+            let html = '<option value="">-- Selecione --</option>';
+            if (Array.isArray(eventos)) {
+                eventos.forEach(ev => {
+                    html += `<option value="${ev.id}">${escapeHtml(ev.nome)}</option>`;
+                });
+            }
+            select.innerHTML = html;
+        } catch (e) {
+            console.error("Erro ao carregar campeonatos:", e);
+        }
+    };
+
+    async function aoMudarEvento() {
+        const eventoId = document.getElementById('select_evento').value;
+        if (!eventoId) {
+            document.getElementById('container_grupos').innerHTML = '';
+            document.getElementById('painel_acao').style.display = 'none';
+            document.getElementById('painel_existentes').style.display = 'none';
+            document.getElementById('barra_selecao_rapida').style.display = 'none';
+            document.getElementById('abas_modo').style.display = 'none';
+            document.getElementById('aviso_sem_bateria').style.display = 'none';
+            return;
+        }
+
+        try {
+            const dadosEv = await fetchSeguro(`/api/eventos/${eventoId}`);
+            regrasEventoBaterias = dadosEv || null;
+            numPlataformasEvento = parseInt(dadosEv.num_plataformas, 10) || 1;
+
+            const selectPlat1 = document.getElementById('select_plataforma');
+            const selectPlat2 = document.getElementById('select_plataforma_ind');
+            let htmlPlats = '';
+            for (let p = 1; p <= numPlataformasEvento; p++) {
+                htmlPlats += `<option value="${p}">Plataforma ${p}</option>`;
+            }
+            selectPlat1.innerHTML = htmlPlats;
+            selectPlat2.innerHTML = htmlPlats;
+
+            document.getElementById('abas_modo').style.display = 'flex';
+            idsIndividuaisMarcados.clear();
+            await recarregarTudoBaterias(false);
+        } catch (e) {
+            alert("Erro ao carregar configurações do campeonato: " + e.message);
+        }
+    }
+
+    async function recarregarTudoBaterias(preservarSelecao = false) {
+        if (!preservarSelecao) {
+            const selTopo = document.getElementById('select_bateria_existente');
+            if (selTopo) selTopo.value = '';
+            const selDestGrupos = document.getElementById('select_bateria_destino_grupos');
+            if (selDestGrupos) selDestGrupos.value = '';
+            const selDestInd = document.getElementById('select_bateria_destino_ind');
+            if (selDestInd) selDestInd.value = '';
+        }
+        await carregarGrupos(preservarSelecao);
+        await carregarAtletasIndividuais(preservarSelecao);
+    }
+
+    function popularDropdownsBateriasDestino() {
+        const selDestGrupos = document.getElementById('select_bateria_destino_grupos');
+        const selDestInd = document.getElementById('select_bateria_destino_ind');
+        let htmlOpcoes = '<option value="">-- Digitar nova ao lado ou escolher existente... --</option>';
+
+        bateriasCriadas.forEach((b, idxBat) => {
+            const plat = Number(b.plataforma || 1);
+            const textoPlat = numPlataformasEvento > 1 ? ` [Plataforma ${plat}]` : '';
+            htmlOpcoes += `<option value="${idxBat}">${escapeHtml(b.bateria)}${textoPlat}</option>`;
+        });
+
+        if (selDestGrupos) {
+            const valAntes = selDestGrupos.value;
+            selDestGrupos.innerHTML = htmlOpcoes;
+            if (valAntes !== '' && bateriasCriadas[Number(valAntes)]) {
+                selDestGrupos.value = valAntes;
+            }
+        }
+        if (selDestInd) {
+            const valAntes = selDestInd.value;
+            selDestInd.innerHTML = htmlOpcoes;
+            if (valAntes !== '' && bateriasCriadas[Number(valAntes)]) {
+                selDestInd.value = valAntes;
+            }
+        }
+    }
+
+    async function carregarGrupos(preservarSelecao = false) {
+        const eventoId = document.getElementById('select_evento').value;
+        const movimento = document.getElementById('select_movimento').value;
+        const container = document.getElementById('container_grupos');
+        
+        if (!eventoId || !movimento) return;
+
+        const chavesMarcadasAntes = new Set();
+        if (preservarSelecao) {
+            document.querySelectorAll('.chk-grupo:checked').forEach(chk => {
+                const gAntigo = gruposAtuais[Number(chk.value)];
+                if (gAntigo) chavesMarcadasAntes.add(gerarChaveUnicaGrupo(gAntigo));
+            });
+        }
+
+        const infoBatAntes = preservarSelecao ? obterBateriaEPlataformaSelecionadaNoDropdown() : null;
+
+        try {
+            await fetchSeguro(`/api/baterias/auto_sincronizar/${eventoId}`);
+            
+            const [resGrupos, resBaterias] = await Promise.all([
+                fetchSeguro(`/api/agrupamentos/${eventoId}/${movimento}`),
+                fetchSeguro(`/api/baterias_disponiveis/${eventoId}/${movimento}`)
+            ]);
+
+            gruposAtuais = Array.isArray(resGrupos) ? resGrupos : [];
+            bateriasCriadas = Array.isArray(resBaterias) ? resBaterias : [];
+
+            popularDropdownsBateriasDestino();
+            
+            if (gruposAtuais.length === 0) {
+                container.innerHTML = `<p style="grid-column: 1 / -1; color: #7f8c8d; font-size: 16px;">Nenhum atleta inscrito para o movimento de <strong>${escapeHtml(movimento)}</strong> neste campeonato.</p>`;
+                document.getElementById('painel_acao').style.display = 'none';
+                document.getElementById('painel_existentes').style.display = 'none';
+                document.getElementById('barra_selecao_rapida').style.display = 'none';
+                atualizarBannerFiltroBateriaTopo();
+                return;
+            }
+
+            const selExistente = document.getElementById('select_bateria_existente');
+            let htmlExistentes = '<option value="">-- Mostrar Todas as Baterias / Todos os Atletas --</option>';
+            if (bateriasCriadas.length > 0) {
+                let idxRestaurar = '';
+                bateriasCriadas.forEach((b, idxBat) => {
+                    const plat = Number(b.plataforma || 1);
+                    const textoPlat = numPlataformasEvento > 1 ? ` [Plataforma ${plat}]` : '';
+                    htmlExistentes += `<option value="${idxBat}">🔍 Filtrar: ${escapeHtml(b.bateria)}${textoPlat}</option>`;
+                    if (infoBatAntes && infoBatAntes.bateria === b.bateria && infoBatAntes.plataforma === plat) {
+                        idxRestaurar = String(idxBat);
+                    }
+                });
+                selExistente.innerHTML = htmlExistentes;
+                if (idxRestaurar !== '') {
+                    selExistente.value = idxRestaurar;
+                }
+                document.getElementById('painel_existentes').style.display = 'flex';
+            } else {
+                selExistente.innerHTML = htmlExistentes;
+                document.getElementById('painel_existentes').style.display = 'none';
+            }
+
+            atualizarBannerFiltroBateriaTopo();
+            atualizarOpcoesFiltrosGrupos();
+
+            let htmlCards = '';
+            gruposAtuais.forEach((g, idx) => {
+                try {
+                    const equip = g.equipamento_escolhido || 'Raw';
+                    const divisoesFormatadas = formatarDivisoesCard(g.divisao_escolhida);
+                    const platNum = g.plataforma || 1;
+                    const isChecked = preservarSelecao && chavesMarcadasAntes.has(gerarChaveUnicaGrupo(g)) ? 'checked' : '';
+
+                    const bateriaHtml = g.bateria 
+                        ? `<span class="badge-bateria">${escapeHtml(g.bateria)}</span>` 
+                        : `<span class="badge-bateria sem-bateria">Sem Bateria</span>`;
+
+                    const plataformaHtml = (g.bateria && numPlataformasEvento > 1)
+                        ? `<span class="badge-plataforma">Plat. ${platNum}</span>`
+                        : '';
+
+                    htmlCards += `
+                        <label class="card-grupo">
+                            <input type="checkbox" class="chk-grupo" value="${idx}" ${isChecked} onchange="atualizarResumoSelecaoGrupos()">
+                            <div class="badge-topo">
+                                <span class="badge-mod">${escapeHtml(g.modalidade_escolhida)}</span>
+                                <span class="badge-equip">${escapeHtml(equip)}</span>
+                            </div>
+                            <div class="badge-sexo ${g.sexo === 'M' ? 'm' : 'f'}">${g.sexo === 'M' ? 'Masculino' : 'Feminino'}</div>
+                            <div style="font-size: 17px; font-weight: bold; margin: 5px 0; color: #2c3e50;">${escapeHtml(divisoesFormatadas)}</div>
+                            <div style="color: #555; font-weight: bold;">Categoria: ${escapeHtml(g.categoria_peso_escolhida)} kg</div>
+                            <div class="rodape-card">
+                                <span class="badge-qtd">${g.qtd_atletas} atleta(s)</span>
+                                ${bateriaHtml}
+                                ${plataformaHtml}
+                            </div>
+                        </label>
+                    `;
+                } catch (errCard) {
+                    console.error("Erro isolado ao renderizar card de grupo:", errCard, g);
+                }
+            });
+            container.innerHTML = htmlCards;
+
+            document.getElementById('barra_selecao_rapida').style.display = 'block';
+            document.getElementById('painel_acao').style.display = 'flex';
+            aplicarFiltrosGrupos();
+        } catch (erro) {
+            console.error("Erro ao carregar grupos de baterias:", erro);
+        }
+    }
+
+    async function carregarAtletasIndividuais(preservarSelecao = false) {
+        const eventoId = document.getElementById('select_evento').value;
+        const movimento = document.getElementById('select_movimento').value;
+        if (!eventoId || !movimento) return;
+
+        if (!preservarSelecao) idsIndividuaisMarcados.clear();
+
+        try {
+            const lista = await fetchSeguro(`/api/baterias/atletas_movimento/${eventoId}/${movimento}`);
+            atletasIndividuais = Array.isArray(lista) ? lista : [];
+            renderizarTabelaAtletasIndividuais();
+            atualizarAvisoAtletasSemBateria();
+        } catch (e) {
+            console.error("Erro ao carregar atletas individuais:", e);
+        }
+    }
+
+    function renderizarTabelaAtletasIndividuais() {
+        const tbody = document.getElementById('tbody_atletas_individuais');
+        const filtro = (document.getElementById('filtro_atleta_ind').value || '').trim().toLowerCase();
+        const filtroBatTopo = obterBateriaEPlataformaSelecionadaNoDropdown();
+
+        if (atletasIndividuais.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 15px; color:#7f8c8d;">Nenhum atleta inscrito neste movimento.</td></tr>';
+            return;
+        }
+
+        let htmlInd = '';
+        let qtdVisiveis = 0;
+
+        atletasIndividuais.forEach(a => {
+            try {
+                // Filtra pela bateria selecionada no dropdown superior ("Baterias Já Criadas Neste Movimento")
+                if (filtroBatTopo && filtroBatTopo.bateria) {
+                    const batAtleta = a.bateria || '';
+                    const platAtleta = Number(a.plataforma || 1);
+                    if (batAtleta !== filtroBatTopo.bateria || platAtleta !== filtroBatTopo.plataforma) {
+                        return;
+                    }
+                }
+
+                const textoBusca = `${a.nome} ${a.bateria || 'sem bateria'} ${a.categoria_peso_escolhida} ${a.modalidade_escolhida}`.toLowerCase();
+                if (filtro && !textoBusca.includes(filtro) && !idsIndividuaisMarcados.has(Number(a.inscricao_id))) {
+                    return;
+                }
+
+                qtdVisiveis++;
+                const checked = idsIndividuaisMarcados.has(Number(a.inscricao_id)) ? 'checked' : '';
+                const batBadge = a.bateria
+                    ? `<span class="badge-bateria">${escapeHtml(a.bateria)} (Plat. ${a.plataforma || 1})</span>`
+                    : `<span class="badge-bateria sem-bateria">Sem Bateria</span>`;
+                const badgeRemanejado = a.remanejado_manual
+                    ? ` <small style="color:#d35400; font-weight:bold;">[Remanejado/Avulso]</small>`
+                    : '';
+
+                htmlInd += `
+                    <tr onclick="alternarCheckIndividual(${a.inscricao_id}, event)" style="cursor:pointer;">
+                        <td style="text-align:center;">
+                            <input type="checkbox" class="chk-ind" value="${a.inscricao_id}" ${checked} onclick="event.stopPropagation(); sincronizarCheckIndividual(${a.inscricao_id}, this.checked)">
+                        </td>
+                        <td><strong>${escapeHtml(a.nome || 'Atleta')}</strong>${badgeRemanejado}</td>
+                        <td>${escapeHtml(a.modalidade_escolhida)} (${escapeHtml(a.equipamento_escolhido)}) — ${escapeHtml(a.categoria_peso_escolhida)}kg</td>
+                        <td>${batBadge}</td>
+                        <td>${a.qtd_concluidas || 0} concluída(s) / Máx: ${a.max_tentativa || 1}ª</td>
+                    </tr>
+                `;
+            } catch (errInd) {
+                console.error("Erro isolado ao renderizar atleta individual:", errInd, a);
+            }
+        });
+
+        if (qtdVisiveis === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 15px; color:#7f8c8d;">Nenhum atleta encontrado para o filtro selecionado.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = htmlInd;
+    }
+
+    function alternarCheckIndividual(inscId, ev) {
+        const idNum = Number(inscId);
+        if (idsIndividuaisMarcados.has(idNum)) idsIndividuaisMarcados.delete(idNum);
+        else idsIndividuaisMarcados.add(idNum);
+        renderizarTabelaAtletasIndividuais();
+    }
+
+    function sincronizarCheckIndividual(inscId, marcado) {
+        const idNum = Number(inscId);
+        if (marcado) idsIndividuaisMarcados.add(idNum);
+        else idsIndividuaisMarcados.delete(idNum);
+    }
+
+    function alternarTodosIndividuais(marcar) {
+        document.querySelectorAll('.chk-ind').forEach(chk => {
+            chk.checked = marcar;
+            sincronizarCheckIndividual(chk.value, marcar);
+        });
+    }
+
+    function limparPesoSeguro(valorDigitado) {
+        if (!valorDigitado) return 0;
+        let textoLimpo = String(valorDigitado).replace(',', '.').replace(/[^0-9.]/g, '');
+        let numero = parseFloat(textoLimpo);
+        return isNaN(numero) || numero < 0 ? 0 : Math.round(numero * 100) / 100;
+    }
+
+    async function removerAtletasMarcadosDaBateria() {
+        const eventoId = document.getElementById('select_evento').value;
+        const movimento = document.getElementById('select_movimento').value;
+
+        if (idsIndividuaisMarcados.size === 0) {
+            alert("Marque pelo menos um atleta na tabela acima para remover da bateria!");
+            return;
+        }
+
+        const confirmar = confirm(
+            `🚫 REMOVER ATLETA(S) DA BATERIA\n\n` +
+            `Deseja remover ${idsIndividuaisMarcados.size} atleta(s) marcado(s) da bateria no movimento ${movimento.toUpperCase()}?\n\n` +
+            `• Eles ficarão com o status "Sem Bateria" neste movimento e não serão chamados na Mesa.\n` +
+            `• As baterias dos outros movimentos e a pesagem deles permanecem intactas.`
+        );
+        if (!confirmar) return;
+
+        const btnRemover = document.getElementById('btn_remover_da_bateria_ind');
+        btnRemover.disabled = true;
+        btnRemover.innerText = "Removendo...";
+
+        try {
+            const retorno = await fetchSeguro('/api/baterias/remanejar_atletas', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    evento_id: eventoId,
+                    movimento: movimento,
+                    inscricoes_ids: Array.from(idsIndividuaisMarcados),
+                    remover_da_bateria: true,
+                    aplicar_todos_movimentos: false
+                })
+            });
+
+            if (retorno.sucesso) {
+                alert(`✅ ${retorno.removidos} atleta(s) removido(s) da bateria em ${movimento.toUpperCase()} com sucesso!`);
+                idsIndividuaisMarcados.clear();
+                await recarregarTudoBaterias(false);
+            }
+        } catch (erro) {
+            alert("Erro ao remover atletas da bateria: " + erro.message);
+        } finally {
+            btnRemover.disabled = false;
+            btnRemover.innerText = "🚫 Remover da Bateria (Atleta Faltou)";
+        }
+    }
+
+    async function aplicarRemanejamentoOuAvulsa() {
+        const eventoId = document.getElementById('select_evento').value;
+        const movimento = document.getElementById('select_movimento').value;
+        const nomeBat = document.getElementById('nome_bateria_ind').value.trim();
+        const plat = parseInt(document.getElementById('select_plataforma_ind').value, 10) || 1;
+        const modoAvulsaExtra = document.getElementById('check_modo_avulsa_extra').checked;
+
+        const inputPesoExtra = document.getElementById('peso_inicial_extra');
+        if (modoAvulsaExtra && inputPesoExtra && inputPesoExtra.validity && inputPesoExtra.validity.badInput) {
+            alert("⚠️ O campo de Carga Inicial da Tentativa Extra contém um número inválido (verifique se não há dois pontos ou vírgulas).");
+            inputPesoExtra.focus();
+            return;
+        }
+
+        const pesoExtra = modoAvulsaExtra ? limparPesoSeguro(inputPesoExtra ? inputPesoExtra.value : 0) : 0;
+
+        if (!nomeBat || idsIndividuaisMarcados.size === 0) {
+            alert("Marque pelo menos um atleta na tabela e digite ou selecione o nome da Bateria de Destino!");
+            return;
+        }
+
+        if (pesoExtra > 500) {
+            const confirmarAlto = confirm(`⚠️ Carga inicial extra muito alta (${pesoExtra} kg). Deseja confirmar esse valor?`);
+            if (!confirmarAlto) return;
+        }
+
+        const btn = document.getElementById('btn_remanejar_ind');
+        btn.disabled = true;
+        btn.innerText = "Processando...";
+
+        try {
+            const retorno = await fetchSeguro('/api/baterias/remanejar_atletas', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    evento_id: eventoId,
+                    movimento: movimento,
+                    nome_bateria: nomeBat,
+                    plataforma: plat,
+                    inscricoes_ids: Array.from(idsIndividuaisMarcados),
+                    modo_avulsa_extra: modoAvulsaExtra,
+                    peso_inicial_extra: pesoExtra,
+                    aplicar_todos_movimentos: false
+                })
+            });
+
+            if (retorno.sucesso) {
+                const msgExtra = retorno.tentativas_extras_criadas > 0
+                    ? `\n🔥 Foram geradas ${retorno.tentativas_extras_criadas} tentativa(s) extra(s) (4ª pedida / PR / Desempate) pronta(s) na fila da Mesa!`
+                    : '';
+                alert(`✅ ${retorno.remanejados} atleta(s) alocado(s) na "${nomeBat}" (Plataforma ${plat} — ${movimento.toUpperCase()}) com sucesso!${msgExtra}`);
+                idsIndividuaisMarcados.clear();
+                document.getElementById('nome_bateria_ind').value = '';
+                document.getElementById('select_bateria_destino_ind').value = '';
+                await recarregarTudoBaterias(false);
+            }
+        } catch (erro) {
+            alert("Erro ao remanejar atletas: " + erro.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerText = "🔀 Aplicar Remanejamento / Criar Bateria Avulsa";
+        }
+    }
+
+    function obterBateriaEPlataformaSelecionadaNoDropdown() {
+        const sel = document.getElementById('select_bateria_existente');
+        if (!sel || sel.value === '') return null;
+        const item = bateriasCriadas[Number(sel.value)];
+        if (!item) return null;
+        return {
+            bateria: item.bateria || '',
+            plataforma: parseInt(item.plataforma || '1', 10) || 1
+        };
+    }
+
+    // Filtra a página (Modo 1: Cartões de Categorias | Modo 2: Lista de Atletas) pela bateria selecionada no topo
+    function aoFiltrarPorBateriaExistente() {
+        const info = obterBateriaEPlataformaSelecionadaNoDropdown();
+        if (info && info.bateria) {
+            const selStatus = document.getElementById('filtro_grupo_status');
+            if (selStatus && selStatus.value === 'SEM_BATERIA') {
+                selStatus.value = 'TODOS';
+            }
+        }
+        atualizarBannerFiltroBateriaTopo();
+        aplicarFiltrosGrupos();
+        renderizarTabelaAtletasIndividuais();
+    }
+
+    function limparFiltroBateriaExistente() {
+        const sel = document.getElementById('select_bateria_existente');
+        if (sel) sel.value = '';
+        atualizarBannerFiltroBateriaTopo();
+        aplicarFiltrosGrupos();
+        renderizarTabelaAtletasIndividuais();
+    }
+
+    // Seletores inferiores próximos ao campo de texto para adicionar categorias/atletas a uma bateria já existente
+    function aoEscolherBateriaDestinoGrupos() {
+        const sel = document.getElementById('select_bateria_destino_grupos');
+        if (!sel || sel.value === '') return;
+        const item = bateriasCriadas[Number(sel.value)];
+        if (!item) return;
+
+        document.getElementById('nome_bateria').value = item.bateria || '';
+        document.getElementById('select_plataforma').value = String(parseInt(item.plataforma || '1', 10) || 1);
+    }
+
+    function aoDigitarNomeBateriaGrupos() {
+        const sel = document.getElementById('select_bateria_destino_grupos');
+        if (!sel || sel.value === '') return;
+        const item = bateriasCriadas[Number(sel.value)];
+        const digitado = document.getElementById('nome_bateria').value.trim();
+        if (!item || item.bateria !== digitado) {
+            sel.value = '';
+        }
+    }
+
+    function aoEscolherBateriaDestinoInd() {
+        const sel = document.getElementById('select_bateria_destino_ind');
+        if (!sel || sel.value === '') return;
+        const item = bateriasCriadas[Number(sel.value)];
+        if (!item) return;
+
+        document.getElementById('nome_bateria_ind').value = item.bateria || '';
+        document.getElementById('select_plataforma_ind').value = String(parseInt(item.plataforma || '1', 10) || 1);
+    }
+
+    function aoDigitarNomeBateriaInd() {
+        const sel = document.getElementById('select_bateria_destino_ind');
+        if (!sel || sel.value === '') return;
+        const item = bateriasCriadas[Number(sel.value)];
+        const digitado = document.getElementById('nome_bateria_ind').value.trim();
+        if (!item || item.bateria !== digitado) {
+            sel.value = '';
+        }
+    }
+
+    function marcarCartoesDaBateriaSelecionada() {
+        const info = obterBateriaEPlataformaSelecionadaNoDropdown();
+        if (!info || !info.bateria) {
+            alert("Selecione primeiro uma bateria na caixa 'Baterias Já Criadas Neste Movimento' acima!");
+            return;
+        }
+
+        if (abaAtual === 'INDIVIDUAL') {
+            atletasIndividuais.forEach(a => {
+                if (a.bateria === info.bateria && Number(a.plataforma || 1) === info.plataforma) {
+                    idsIndividuaisMarcados.add(Number(a.inscricao_id));
+                }
+            });
+            renderizarTabelaAtletasIndividuais();
+            return;
+        }
+
+        document.querySelectorAll('.chk-grupo').forEach(chk => {
+            const g = gruposAtuais[Number(chk.value)];
+            chk.checked = Boolean(g && g.bateria === info.bateria && Number(g.plataforma || 1) === info.plataforma);
+        });
+        atualizarResumoSelecaoGrupos();
+    }
+
+    function alternarTodosCartoes(marcar) {
+        document.querySelectorAll('#container_grupos .card-grupo').forEach(card => {
+            if (card.style.display === 'none') return;
+            const chk = card.querySelector('.chk-grupo');
+            if (chk) chk.checked = marcar;
+        });
+        atualizarResumoSelecaoGrupos();
+    }
+
+    function desmarcarTodosCartoesGeral() {
+        document.querySelectorAll('.chk-grupo').forEach(chk => chk.checked = false);
+        atualizarResumoSelecaoGrupos();
+    }
+
+    function limparFiltrosGrupos() {
+        document.getElementById('filtro_grupo_sexo').value = 'TODOS';
+        document.getElementById('filtro_grupo_divisao').value = 'TODAS';
+        document.getElementById('filtro_grupo_peso').value = 'TODAS';
+        document.getElementById('filtro_grupo_modalidade').value = 'TODAS';
+        document.getElementById('filtro_grupo_equipamento').value = 'TODOS';
+        document.getElementById('filtro_grupo_status').value = 'TODOS';
+        const selTopo = document.getElementById('select_bateria_existente');
+        if (selTopo) selTopo.value = '';
+        atualizarBannerFiltroBateriaTopo();
+        aplicarFiltrosGrupos();
+    }
+
+    async function excluirBateriaSelecionada() {
+        const eventoId = document.getElementById('select_evento').value;
+        const movimento = document.getElementById('select_movimento').value;
+        const info = obterBateriaEPlataformaSelecionadaNoDropdown();
+
+        if (!info || !info.bateria) {
+            alert("Selecione qual bateria deseja excluir na caixa 'Baterias Já Criadas Neste Movimento'!");
+            return;
+        }
+
+        if (!confirm(`⚠️ Tem certeza que deseja EXCLUIR a "${info.bateria}" (Plataforma ${info.plataforma}) apenas do movimento ${movimento.toUpperCase()}?\n\nOs atletas não serão apagados do evento e as baterias dos outros movimentos não serão afetadas.`)) {
+            return;
+        }
+
+        const btnExcluir = document.getElementById('btn_excluir_bateria');
+        btnExcluir.disabled = true;
+
+        try {
+            const retorno = await fetchSeguro('/api/baterias/excluir', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    evento_id: eventoId,
+                    movimento: movimento,
+                    nome_bateria: info.bateria,
+                    plataforma: info.plataforma
+                })
+            });
+
+            if (retorno.sucesso) {
+                document.getElementById('nome_bateria').value = '';
+                document.getElementById('select_bateria_existente').value = '';
+                document.getElementById('select_bateria_destino_grupos').value = '';
+                document.getElementById('select_bateria_destino_ind').value = '';
+                await recarregarTudoBaterias(false);
+            } else {
+                alert("Erro ao excluir bateria: " + retorno.erro);
+            }
+        } catch (erro) {
+            alert("Erro de comunicação ao excluir bateria: " + erro.message);
+        } finally {
+            btnExcluir.disabled = false;
+        }
+    }
+
+    async function aplicarBateria() {
+        const nome = document.getElementById('nome_bateria').value.trim();
+        const plataforma = parseInt(document.getElementById('select_plataforma').value, 10) || 1;
+        const chks = document.querySelectorAll('.chk-grupo:checked');
+        
+        if (!nome || chks.length === 0) {
+            alert("Digite ou escolha o nome da Bateria e marque pelo menos um cartão de atletas!");
+            return;
+        }
+
+        const gruposSelecionados = Array.from(chks).map(cb => {
+            const g = gruposAtuais[Number(cb.value)];
+            return {
+                sexo: g.sexo,
+                divisao: g.divisao_escolhida,
+                categoria: g.categoria_peso_escolhida,
+                modalidade: g.modalidade_escolhida,
+                equipamento: g.equipamento_escolhido || 'Raw',
+                bateria_atual: g.bateria || '',
+                plataforma_atual: g.plataforma || 1
+            };
+        });
+
+        const btnAgrupar = document.getElementById('btn_agrupar');
+        btnAgrupar.disabled = true;
+        btnAgrupar.innerText = "Agrupando...";
+
+        try {
+            const retorno = await fetchSeguro('/api/baterias/agrupar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    evento_id: document.getElementById('select_evento').value,
+                    movimento: document.getElementById('select_movimento').value,
+                    nome_bateria: nome,
+                    plataforma: plataforma,
+                    grupos_selecionados: gruposSelecionados,
+                    aplicar_todos_movimentos: false
+                })
+            });
+
+            if (retorno.sucesso) {
+                document.getElementById('nome_bateria').value = '';
+                document.getElementById('select_bateria_destino_grupos').value = '';
+                await recarregarTudoBaterias(false);
+            } else {
+                alert("Erro ao agrupar bateria: " + retorno.erro);
+            }
+        } catch (erro) {
+            alert("Erro de comunicação ao agrupar bateria: " + erro.message);
+        } finally {
+            btnAgrupar.disabled = false;
+            btnAgrupar.innerText = "Agrupar Selecionados";
+        }
+    }
+</script>
+</body>
+</html>

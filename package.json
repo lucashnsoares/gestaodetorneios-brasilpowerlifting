@@ -1,0 +1,34 @@
+{
+  "name": "gestao-torneios-brasil-powerlifting",
+  "version": "1.2.3",
+  "private": true,
+  "description": "Offline-first powerlifting meet management and real-time LAN scoreboard software (EN / PT-BR)",
+  "main": "server.js",
+  "homepage": "https://brasilpowerlifting.com.br",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [
+    "powerlifting",
+    "meet-management",
+    "scoreboard",
+    "offline-first",
+    "sqlite",
+    "brasil"
+  ],
+  "author": "Hiroshi Tecnologia",
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "better-sqlite3": "^13.0.3",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "socket.io": "^4.8.4"
+  },
+  "allowScripts": {
+    "better-sqlite3@13.0.3": true
+  }
+}

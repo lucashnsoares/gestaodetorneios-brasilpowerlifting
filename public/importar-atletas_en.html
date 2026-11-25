@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+<!-- Apesar de ser uma funcionalidade relacionada a página de nuvem eu preferi deixar separado porque a arquitetura da página de nuvem não suporta mais -->
+<!-- Eu reutilizei as rotas já criadas e testadas do Server.js e adicionei rotas isoladas para evitar erros. Ele valida cada atleta e adiciona pela rota de inscrição -->
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bulk Import Athletes - Powerlifting</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #eef2f3; margin: 0; color: #2c3e50; }
+        .container { max-width: 980px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        h1, h2, h3 { color: #2c3e50; border-bottom: 2px solid #2980b9; padding-bottom: 10px; margin-top: 0; }
+        .card-secao { background: #f8f9fa; border: 1px solid #dfe6e9; border-radius: 8px; padding: 20px; margin-bottom: 22px; }
+        label { font-weight: bold; font-size: 14px; display: block; margin-bottom: 6px; color: #444; }
+        select, input[type="file"] { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; font-size: 15px; background: white; }
+
+        .btn { padding: 11px 18px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 14px; color: white; text-decoration: none; display: inline-block; }
+        .btn:disabled { background: #95a5a6 !important; cursor: not-allowed; }
+        .btn-verde { background: #27ae60; }
+        .btn-verde:hover { background: #2ecc71; }
+        .btn-azul { background: #2980b9; }
+        .btn-azul:hover { background: #3498db; }
+        .btn-cinza { background: #7f8c8d; }
+        .btn-cinza:hover { background: #636e72; }
+
+        .aviso-sem-campeonato { display: none; background: #fff5f5; border: 2px solid #e74c3c; border-left: 7px solid #c0392b; border-radius: 8px; padding: 22px; margin-bottom: 25px; color: #922b21; line-height: 1.6; }
+        .aviso-sem-campeonato a { color: #c0392b; font-weight: bold; text-decoration: underline; }
+
+        .tabela-estrutura { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; background: white; }
+        .tabela-estrutura th, .tabela-estrutura td { border: 1px solid #dcdde1; padding: 8px 10px; text-align: left; }
+        .tabela-estrutura th { background: #2c3e50; color: white; }
+        .badge-obg { background: #e74c3c; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+        .badge-opc { background: #7f8c8d; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; }
+
+        .painel-resultado { display: none; border-radius: 8px; padding: 20px; margin-top: 20px; line-height: 1.5; }
+        .painel-resultado.sucesso { background: #e8f8f5; border: 2px solid #16a085; color: #0e6251; }
+        .painel-resultado.erro { background: #fff5f5; border: 2px solid #e74c3c; color: #922b21; }
+
+        .lista-nomes { background: white; border: 1px solid #ccc; border-radius: 6px; padding: 12px 18px; max-height: 220px; overflow-y: auto; margin-top: 8px; font-size: 14px; color: #2c3e50; }
+        .barra-progresso-wrap { display: none; background: #dfe6e9; border-radius: 6px; overflow: hidden; height: 22px; margin-top: 15px; }
+        .barra-progresso-fill { background: #2980b9; height: 100%; width: 0%; color: white; font-size: 12px; font-weight: bold; text-align: center; line-height: 22px; transition: width 0.15s ease; }
+    </style>
+</head>
+<body>
+<nav style="background: #2c3e50; padding: 15px; margin-bottom: 20px; display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+    <a href="/" style="color: white; text-decoration: none; font-weight: bold;">🏠 Home</a>
+    <a href="/criar-evento" style="color: #bdc3c7; text-decoration: none;">1. Event</a>
+    <a href="/inscricao" style="color: #bdc3c7; text-decoration: none;">2. Registration</a>
+    <a href="/baterias" style="color: #bdc3c7; text-decoration: none;">3. Flights</a>
+    <a href="/pesagem" style="color: #bdc3c7; text-decoration: none;">4. Weigh-in</a>
+    <a href="/admin" style="color: #bdc3c7; text-decoration: none;">5. Scoretable</a>
+    <a href="/display" style="color: #2ecc71; text-decoration: none;">6. Display</a>
+    <a href="/resultados" style="color: #f1c40f; text-decoration: none;">7. Results 🏆</a>
+    <a href="/nuvem" style="color: #1abc9c; text-decoration: none; font-weight: bold;">☁️ Cloud</a>
+</nav>
+
+<div class="container">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 18px;">
+        <h1 style="margin: 0; border: none;">📥 Safe Athlete Import (.CSV / .JSON / .Excel)</h1>
+        <a href="/nuvem" class="btn btn-cinza">⬅️ Back to Cloud Center</a>
+    </div>
+
+    <!-- AVISO CASO NÃO EXISTA NENHUM CAMPEONATO LOCAL CRIADO -->
+    <div class="aviso-sem-campeonato" id="box_aviso_sem_campeonato">
+        <h3 style="margin-top: 0; color: #c0392b; border: none; padding: 0;">⚠️ No Meet Found on This Computer!</h3>
+        <p style="margin: 8px 0;">
+            To import athletes from a file, you must first create a local meet in the application (or download an existing meet from the cloud).
+        </p>
+        <p style="margin: 8px 0;">
+            📖 <strong>Need help?</strong> Read the official step-by-step manual at:
+            <a href="https://brasilpowerlifting.com.br/en/manual" target="_blank" rel="noopener noreferrer">https://brasilpowerlifting.com.br/en/manual</a>
+        </p>
+        <div style="margin-top: 14px; display: flex; gap: 10px; flex-wrap: wrap;">
+            <a href="/criar-evento" class="btn btn-azul">➕ Create Meet Now (1. Event)</a>
+            <a href="https://brasilpowerlifting.com.br/en/manual" target="_blank" rel="noopener noreferrer" class="btn btn-verde">📖 Open Official Manual</a>
+        </div>
+    </div>
+
+    <div id="conteudo_importador" style="display: none;">
+        <!-- PASSO 1: SELECIONAR CAMPEONATO E VERIFICAR MODELO ESTRITO -->
+        <div class="card-secao">
+            <h2>1. Select Target Meet</h2>
+            <label for="select_evento_importacao">Meet saved on this computer:</label>
+            <select id="select_evento_importacao" onchange="aoTrocarCampeonatoDestino()">
+                <option value="">-- Loading meets... --</option>
+            </select>
+            <div id="info_regras_campeonato" style="margin-top: 10px; font-size: 13px; color: #555;"></div>
+        </div>
+
+        <!-- PASSO 2: ESTRUTURA ESTRITA DOS CAMPOS E MODELOS PARA DOWNLOAD -->
+        <div class="card-secao">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                <h2 style="margin: 0; border: none; padding: 0;">2. Strict Import File Structure</h2>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <button type="button" class="btn btn-azul" onclick="baixarModeloCSV()">⬇️ Download .CSV Template</button>
+                    <button type="button" class="btn btn-cinza" onclick="baixarModeloJSON()">⬇️ Download .JSON Template</button>
+                </div>
+            </div>
+            <p style="font-size: 13.5px; color: #444; margin-top: 10px;">
+                Only the <strong><code>nome</code></strong> (name) and <strong><code>sexo</code></strong> (sex) fields are required. All other fields are optional. Duplicate athletes (who already exist with the same information in this local meet or in the cloud) will be automatically skipped without duplicating records.
+            </p>
+
+            <div style="overflow-x: auto;">
+                <table class="tabela-estrutura">
+                    <thead>
+                        <tr>
+                            <th>Exact Field Name</th>
+                            <th>Required?</th>
+                            <th>Format / Accepted Values</th>
+                            <th>Default if Empty</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>nome</code></td>
+                            <td><span class="badge-obg">REQUIRED</span></td>
+                            <td>Athlete's full name (max. 120 characters)</td>
+                            <td><em>Stops with error</em></td>
+                        </tr>
+                        <tr>
+                            <td><code>sexo</code></td>
+                            <td><span class="badge-obg">REQUIRED</span></td>
+                            <td><code>M</code> or <code>F</code> (also accepts <code>Masculino</code> / <code>Feminino</code>)</td>
+                            <td><em>Stops with error</em></td>
+                        </tr>
+                        <tr>
+                            <td><code>cpf</code></td>
+                            <td><span class="badge-opc">Optional</span></td>
+                            <td>11 digits (<code>000.000.000-00</code> or numbers only)</td>
+                            <td>Empty</td>
+                        </tr>
+                        <tr>
+                            <td><code>data_nascimento</code></td>
+                            <td><span class="badge-opc">Optional</span></td>
+                            <td><code>DD/MM/YYYY</code>, <code>YYYY-MM-DD</code> or just the Year <code>YYYY</code></td>
+                            <td>Empty</td>
+                        </tr>
+                        <tr>
+                            <td><code>whatsapp</code></td>
+                            <td><span class="badge-opc">Optional</span></td>
+                            <td>E.g.: <code>(11) 99999-9999</code></td>
+                            <td>Empty</td>
+                        </tr>
+                        <tr>
+                            <td><code>cidade</code> / <code>estado</code> / <code>equipe</code></td>
+                            <td><span class="badge-opc">Optional</span></td>
+                            <td>City (text), State UF (e.g.: <code>SP</code>, <code>RJ</code>), Team (text)</td>
+                            <td>State: <code>SP</code> | Team: <code>Sem Equipe</code> (No Team)</td>
+                        </tr>
+                        <tr>
+                            <td><code>pcd</code></td>
+                            <td><span class="badge-opc">Optional</span></td>
+                            <td><code>SIM</code> (Yes), <code>NAO</code> (No), <code>1</code>, <code>0</code>, <code>true</code>, <code>false</code></td>
+                            <td><code>NAO</code> (No)</td>
+                        </tr>
+                        <tr>
+                            <td><code>instagram</code> / <code>youtube</code> / <code>outros_social</code></td>
+                            <td><span class="badge-opc">Optional</span></td>
+                            <td>Athlete's social media (e.g.: <code>@athlete</code>)</td>
+                            <td>Empty</td>
+                        </tr>
+                        <tr>
+                            <td><code>modalidade_escolhida</code></td>
+                            <td><span class="badge-opc">Optional</span></td>
+                            <td>E.g.: <code>Full Power</code>, <code>Supino Solo</code> (Bench Only), <code>Terra Solo</code> (Deadlift Only), <code>Push-Pull</code></td>
+                            <td>1st event of the meet</td>
+                        </tr>
+                        <tr>
+                            <td><code>equipamento_escolhido</code></td>
+                            <td><span class="badge-opc">Optional</span></td>
+                            <td>E.g.: <code>Raw</code>, <code>Classic Raw</code>, <code>Single-Ply</code></td>
+                            <td>1st equipment of the meet</td>
+                        </tr>
+                        <tr>
+                            <td><code>divisao_escolhida</code></td>
+                            <td><span class="badge-opc">Optional</span></td>
+                            <td>E.g.: <code>Open</code> (for crossover/multiple divisions, separate with <code>;</code> e.g.: <code>Open;Master 1</code>)</td>
+                            <td>1st division of the meet</td>
+                        </tr>
+                        <tr>
+                            <td><code>categoria_peso_escolhida</code></td>
+                            <td><span class="badge-opc">Optional</span></td>
+                            <td>E.g.: <code>Livre</code> (Open/Unrestricted), <code>82.5</code>, <code>90</code>, <code>+140</code></td>
+                            <td><code>Livre</code></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- PASSO 3: UPLOAD E EXECUÇÃO SEQUENCIAL -->
+        <div class="card-secao">
+            <h2>3. Select File and Start Import</h2>
+            <label for="input_arquivo_atletas">Choose file (<code>.csv</code>, <code>.json</code> or <code>.xlsx</code>):</label>
+            <input type="file" id="input_arquivo_atletas" accept=".csv,.json,.xlsx,.xls" onchange="aoSelecionarArquivo(event)">
+
+            <div id="resumo_arquivo_lido" style="margin-top: 12px; font-size: 14px; font-weight: bold; color: #1f618d;"></div>
+
+            <div style="margin-top: 16px;">
+                <button type="button" class="btn btn-verde" id="btn_iniciar_importacao" onclick="executarImportacaoSequencial()" disabled style="width: 100%; font-size: 16px; padding: 14px;">
+                    🚀 Validate and Register Athletes in Selected Meet
+                </button>
+            </div>
+
+            <div class="barra-progresso-wrap" id="barra_progresso_wrap">
+                <div class="barra-progresso-fill" id="barra_progresso_fill">0%</div>
+            </div>
+        </div>
+
+        <!-- PAINEL DE RELATÓRIO FINAL OU DE ERRO -->
+        <div class="painel-resultado" id="painel_resultado_importacao"></div>
+    </div>
+</div>
+
+<script>
+    let listaEventosLocais = [];
+    let regrasEventoSelecionado = null;
+    let registrosLidosDoArquivo = [];
+
+    const ESTADOS_UF_VALIDOS = [
+        'AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG',
+        'PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'
+    ];
+
+    function escapeHtml(texto) {
+        if (texto === undefined || texto === null) return '';
+        return String(texto)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    async function fetchJsonSeguro(url, opcoes = {}, timeoutMs = 10000) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            const res = await fetch(url, { ...opcoes, signal: controller.signal });
+            clearTimeout(timer);
+            const dados = await res.json().catch(() => ({}));
+            return { ok: res.ok, status: res.status, dados };
+        } catch (erro) {
+            clearTimeout(timer);
+            throw erro;
+        }
+    }
+
+    window.onload = async function() {
+        try {
+            const { ok, dados } = await fetchJsonSeguro('/api/eventos');
+            listaEventosLocais = (ok && Array.isArray(dados)) ? dados : [];
+
+            const boxSemCamp = document.getElementById('box_aviso_sem_campeonato');
+            const conteudoImp = document.getElementById('conteudo_importador');
+            const selectEv = document.getElementById('select_evento_importacao');
+
+            if (listaEventosLocais.length === 0) {
+                boxSemCamp.style.display = 'block';
+                conteudoImp.style.display = 'none';
+                return;
+            }
+
+            boxSemCamp.style.display = 'none';
+            conteudoImp.style.display = 'block';
+
+            selectEv.innerHTML = '<option value="">-- Select a Meet --</option>';
+            listaEventosLocais.forEach(ev => {
+                selectEv.innerHTML += `<option value="${ev.id}">${escapeHtml(ev.nome)} (${escapeHtml(ev.data)})</option>`;
+            });
+
+            if (listaEventosLocais.length === 1) {
+                selectEv.value = String(listaEventosLocais[0].id);
+                await aoTrocarCampeonatoDestino();
+            }
+        } catch (e) {
+            alert('Error communicating with the local server: ' + e.message);
+        }
+    };
+
+    async function aoTrocarCampeonatoDestino() {
+        const eventoId = document.getElementById('select_evento_importacao').value;
+        const infoDiv = document.getElementById('info_regras_campeonato');
+        regrasEventoSelecionado = null;
+        atualizarEstadoBotaoImportar();
+
+        if (!eventoId) {
+            infoDiv.innerHTML = '';
+            return;
+        }
+
+        try {
+            const { ok, dados } = await fetchJsonSeguro(`/api/eventos/${eventoId}`);
+            if (ok && dados) {
+                regrasEventoSelecionado = dados;
+                const mods = (dados.modalidades || ['Full Power']).join(', ');
+                const equips = (dados.equipamentos || ['Raw']).join(', ');
+                const divs = (dados.divisoes_idade || ['Open']).join(', ');
+                infoDiv.innerHTML = `✅ <strong>Rules loaded:</strong> Events: <em>${escapeHtml(mods)}</em> | Equipment: <em>${escapeHtml(equips)}</em> | Divisions: <em>${escapeHtml(divs)}</em>`;
+                atualizarEstadoBotaoImportar();
+            }
+        } catch (e) {
+            infoDiv.innerHTML = `<span style="color:#c0392b;">Error loading meet rules.</span>`;
+        }
+    }
+
+    function atualizarEstadoBotaoImportar() {
+        const btn = document.getElementById('btn_iniciar_importacao');
+        btn.disabled = !(regrasEventoSelecionado && registrosLidosDoArquivo.length > 0);
+    }
+
+    // Parser de CSV compatível com vírgula (,) ou ponto-e-vírgula (;) do Excel em Português
+    function parseCSVTexto(textoBruto) {
+        const texto = String(textoBruto || '').replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        const linhas = [];
+        let linhaAtual = [];
+        let campoAtual = '';
+        let dentroAspas = false;
+
+        const primeiraLinha = texto.split('\n')[0] || '';
+        const qtdPontoVirgula = (primeiraLinha.match(/;/g) || []).length;
+        const qtdVirgula = (primeiraLinha.match(/,/g) || []).length;
+        const delimitador = qtdPontoVirgula > qtdVirgula ? ';' : ',';
+
+        for (let i = 0; i < texto.length; i++) {
+            const ch = texto[i];
+            const prox = texto[i + 1];
+
+            if (dentroAspas) {
+                if (ch === '"' && prox === '"') {
+                    campoAtual += '"';
+                    i++;
+                } else if (ch === '"') {
+                    dentroAspas = false;
+                } else {
+                    campoAtual += ch;
+                }
+            } else {
+                if (ch === '"') {
+                    dentroAspas = true;
+                } else if (ch === delimitador) {
+                    linhaAtual.push(campoAtual.trim());
+                    campoAtual = '';
+                } else if (ch === '\n') {
+                    linhaAtual.push(campoAtual.trim());
+                    if (linhaAtual.some(v => v !== '')) {
+                        linhas.push(linhaAtual);
+                    }
+                    linhaAtual = [];
+                    campoAtual = '';
+                } else {
+                    campoAtual += ch;
+                }
+            }
+        }
+        if (campoAtual.trim() !== '' || linhaAtual.some(v => v !== '')) {
+            linhaAtual.push(campoAtual.trim());
+            linhas.push(linhaAtual);
+        }
+
+        if (linhas.length < 2) return [];
+        const cabecalhos = linhas[0].map(h => String(h || '').trim().toLowerCase());
+        const objetos = [];
+
+        for (let r = 1; r < linhas.length; r++) {
+            const vals = linhas[r];
+            if (!vals.some(v => String(v || '').trim() !== '')) continue;
+            const obj = { __linha_arquivo: r + 1 };
+            cabecalhos.forEach((col, idx) => {
+                if (col) obj[col] = vals[idx] !== undefined ? String(vals[idx]).trim() : '';
+            });
+            objetos.push(obj);
+        }
+        return objetos;
+    }
+
+    async function aoSelecionarArquivo(event) {
+        const file = event.target.files[0];
+        const resumo = document.getElementById('resumo_arquivo_lido');
+        const painelRes = document.getElementById('painel_resultado_importacao');
+        painelRes.style.display = 'none';
+        registrosLidosDoArquivo = [];
+        atualizarEstadoBotaoImportar();
+
+        if (!file) {
+            resumo.innerText = '';
+            return;
+        }
+
+        const nomeLower = file.name.toLowerCase();
+        resumo.innerText = '⏳ Reading and verifying file structure...';
+
+        try {
+            if (nomeLower.endsWith('.json')) {
+                const texto = await file.text();
+                const parsed = JSON.parse(texto);
+                const lista = Array.isArray(parsed)
+                    ? parsed
+                    : (Array.isArray(parsed?.atletas) ? parsed.atletas : (Array.isArray(parsed?.inscricoes) ? parsed.inscricoes : null));
+
+                if (!Array.isArray(lista)) {
+                    throw new Error('The JSON file must contain a list (Array) of athletes.');
+                }
+                registrosLidosDoArquivo = lista.map((item, idx) => {
+                    const normalizado = { __linha_arquivo: idx + 1 };
+                    if (item && typeof item === 'object') {
+                        Object.keys(item).forEach(k => {
+                            normalizado[String(k).trim().toLowerCase()] = item[k];
+                        });
+                    }
+                    return normalizado;
+                });
+            } else if (nomeLower.endsWith('.csv')) {
+                const texto = await file.text();
+                registrosLidosDoArquivo = parseCSVTexto(texto);
+            } else if (nomeLower.endsWith('.xlsx') || nomeLower.endsWith('.xls')) {
+                const buffer = await file.arrayBuffer();
+                const bytes = new Uint8Array(buffer);
+                let binario = '';
+                for (let i = 0; i < bytes.byteLength; i++) {
+                    binario += String.fromCharCode(bytes[i]);
+                }
+                const base64 = btoa(binario);
+                const { ok, dados } = await fetchJsonSeguro('/api/importar-atletas/ler-xlsx', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ arquivo_base64: base64 })
+                });
+                if (!ok || !dados.sucesso) {
+                    throw new Error(dados.erro || 'Could not read the Excel spreadsheet.');
+                }
+                registrosLidosDoArquivo = dados.registros || [];
+            } else {
+                throw new Error('Unsupported format. Please upload a .CSV, .JSON, or .XLSX file.');
+            }
+
+            if (registrosLidosDoArquivo.length === 0) {
+                throw new Error('No athletes found inside the selected file.');
+            }
+
+            resumo.innerHTML = `📄 File <strong>${escapeHtml(file.name)}</strong> loaded: <strong>${registrosLidosDoArquivo.length}</strong> record(s) ready for validation.`;
+            atualizarEstadoBotaoImportar();
+        } catch (erro) {
+            resumo.innerHTML = `<span style="color:#c0392b;">❌ Error reading file: ${escapeHtml(erro.message)}</span>`;
+            event.target.value = '';
+        }
+    }
+
+    function converterDataParaISO(valorBruto) {
+        const limpo = String(valorBruto ?? '').trim();
+        if (!limpo) return '';
+        if (/^\d{4}-\d{2}-\d{2}$/.test(limpo)) {
+            const [a, m, d] = limpo.split('-').map(Number);
+            const dt = new Date(a, m - 1, d);
+            if (dt.getFullYear() === a && dt.getMonth() === m - 1 && dt.getDate() === d && a >= 1900 && a <= 2100) {
+                return limpo;
+            }
+            return null;
+        }
+        if (/^\d{4}$/.test(limpo)) {
+            const ano = parseInt(limpo, 10);
+            if (ano >= 1900 && ano <= 2100) return `${ano}-01-01`;
+            return null;
+        }
+        const match = limpo.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if (!match) return null;
+        const dia = parseInt(match[1], 10);
+        const mes = parseInt(match[2], 10);
+        const ano = parseInt(match[3], 10);
+        if (ano < 1900 || ano > 2100 || mes < 1 || mes > 12 || dia < 1 || dia > 31) return null;
+        const dt = new Date(ano, mes - 1, dia);
+        if (dt.getFullYear() !== ano || dt.getMonth() !== mes - 1 || dt.getDate() !== dia) return null;
+        return `${String(ano).padStart(4, '0')}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+    }
+
+    function normalizarDivisoesArray(valorBruto, divisaoPadrao) {
+        if (Array.isArray(valorBruto)) {
+            const limpas = valorBruto.map(d => String(d || '').trim()).filter(Boolean);
+            return limpas.length > 0 ? limpas : [divisaoPadrao];
+        }
+        const str = String(valorBruto ?? '').trim();
+        if (!str) return [divisaoPadrao];
+        if (str.startsWith('[')) {
+            try {
+                const p = JSON.parse(str);
+                if (Array.isArray(p) && p.length > 0) return p.map(d => String(d).trim()).filter(Boolean);
+            } catch (e) {}
+        }
+        const partes = str.split(/[;+]/).map(s => s.trim()).filter(Boolean);
+        return partes.length > 0 ? partes : [divisaoPadrao];
+    }
+
+    function validarENormalizarAtletaDaLinha(registroBruto, indiceZeroBased) {
+        const numLinha = registroBruto?.__linha_arquivo || (indiceZeroBased + 1);
+        if (!registroBruto || typeof registroBruto !== 'object') {
+            throw new Error(`Row ${numLinha}: Record in invalid format.`);
+        }
+
+        const nome = String(registroBruto.nome ?? registroBruto.nome_completo ?? '').trim();
+        if (!nome) {
+            throw new Error(`Row ${numLinha}: The required field "nome" (name) is empty or missing.`);
+        }
+        if (nome.length > 120) {
+            throw new Error(`Row ${numLinha} (${nome.slice(0, 30)}...): Name exceeds 120 characters.`);
+        }
+
+        const sexoBruto = String(registroBruto.sexo ?? '').trim().toUpperCase();
+        let sexo = '';
+        if (sexoBruto === 'M' || sexoBruto === 'MASCULINO' || sexoBruto === 'MASC') {
+            sexo = 'M';
+        } else if (sexoBruto === 'F' || sexoBruto === 'FEMININO' || sexoBruto === 'FEM') {
+            sexo = 'F';
+        } else {
+            throw new Error(`Row ${numLinha} (Athlete "${nome}"): The required field "sexo" (sex) is invalid ("${registroBruto.sexo ?? ''}"). Use "M" or "F".`);
+        }
+
+        const cpfDigitos = String(registroBruto.cpf ?? '').replace(/\D/g, '');
+        if (cpfDigitos.length > 0 && cpfDigitos.length !== 11) {
+            throw new Error(`Row ${numLinha} (Athlete "${nome}"): The provided CPF ("${registroBruto.cpf}") must contain exactly 11 digits or be left blank.`);
+        }
+
+        const nascBruto = String(registroBruto.data_nascimento ?? '').trim();
+        let dataISO = '';
+        if (nascBruto) {
+            dataISO = converterDataParaISO(nascBruto);
+            if (!dataISO) {
+                throw new Error(`Row ${numLinha} (Athlete "${nome}"): Invalid birth date ("${nascBruto}"). Use DD/MM/YYYY, YYYY-MM-DD, just the Year (YYYY), or leave it blank.`);
+            }
+        }
+
+        const ufBruto = String(registroBruto.estado ?? '').trim().toUpperCase();
+        const estado = ufBruto ? (ESTADOS_UF_VALIDOS.includes(ufBruto) ? ufBruto : 'SP') : 'SP';
+
+        const pcdBruto = String(registroBruto.pcd ?? '').trim().toUpperCase();
+        const pcd = ['1', 'SIM', 'S', 'TRUE', 'PCD'].includes(pcdBruto);
+
+        const modPadrao = regrasEventoSelecionado?.modalidades?.[0] || 'Full Power';
+        const equipPadrao = regrasEventoSelecionado?.equipamentos?.[0] || 'Raw';
+        const divPadrao = regrasEventoSelecionado?.divisoes_idade?.[0] || 'Open';
+
+        const modalidade = String(registroBruto.modalidade_escolhida ?? '').trim() || modPadrao;
+        const equipamento = String(registroBruto.equipamento_escolhido ?? '').trim() || equipPadrao;
+        const divisoes = normalizarDivisoesArray(registroBruto.divisao_escolhida, divPadrao);
+        const categoriaPeso = String(registroBruto.categoria_peso_escolhida ?? '').trim() || 'Livre';
+
+        return {
+            nome,
+            sexo,
+            cpf: cpfDigitos || null,
+            data_nascimento: dataISO,
+            whatsapp: String(registroBruto.whatsapp ?? '').trim(),
+            cidade: String(registroBruto.cidade ?? '').trim(),
+            estado,
+            equipe: String(registroBruto.equipe ?? '').trim() || 'Sem Equipe',
+            pcd,
+            instagram: String(registroBruto.instagram ?? '').trim(),
+            youtube: String(registroBruto.youtube ?? '').trim(),
+            outros_social: String(registroBruto.outros_social ?? '').trim(),
+            modalidade_escolhida: modalidade,
+            equipamento_escolhido: equipamento,
+            divisao_escolhida: divisoes,
+            categoria_peso_escolhida: categoriaPeso
+        };
+    }
+
+    // Verifica se o atleta já existe no Campeonato Local ou na Nuvem respeitando os campos opcionais
+    function atletaJaExisteNaLista(atletaNovo, listaExistentes) {
+        const nomeNovo = atletaNovo.nome.toLowerCase();
+        const sexoNovo = atletaNovo.sexo;
+        const cpfNovo = atletaNovo.cpf || '';
+        const modNova = atletaNovo.modalidade_escolhida.toLowerCase();
+        const equipNovo = atletaNovo.equipamento_escolhido.toLowerCase();
+        const catNova = atletaNovo.categoria_peso_escolhida.toLowerCase();
+        const divNova = JSON.stringify(atletaNovo.divisao_escolhida);
+
+        return listaExistentes.some(ex => {
+            const nomeEx = String(ex.nome || '').trim().toLowerCase();
+            const sexoEx = String(ex.sexo || 'M').trim().toUpperCase();
+            const cpfEx = String(ex.cpf || '').replace(/\D/g, '');
+
+            if (nomeEx !== nomeNovo || sexoEx !== sexoNovo) return false;
+            if (cpfNovo && cpfEx && cpfNovo !== cpfEx) return false;
+
+            const modEx = String(ex.modalidade_escolhida || 'Full Power').trim().toLowerCase();
+            const equipEx = String(ex.equipamento_escolhido || 'Raw').trim().toLowerCase();
+            const catEx = String(ex.categoria_peso_escolhida || 'Livre').trim().toLowerCase();
+            const divExArr = normalizarDivisoesArray(ex.divisao_escolhida, 'Open');
+            const divEx = JSON.stringify(divExArr);
+
+            if (modEx === modNova && equipEx === equipNovo && catEx === catNova && divEx === divNova) {
+                return true;
+            }
+
+            // Se os campos opcionais informados no arquivo forem idênticos a uma inscrição existente do mesmo atleta
+            const nascEx = converterDataParaISO(ex.data_nascimento) || '';
+            if (atletaNovo.data_nascimento && nascEx && atletaNovo.data_nascimento !== nascEx) {
+                return false;
+            }
+            return modEx === modNova && equipEx === equipNovo;
+        });
+    }
+
+    function renderizarRelatorioImportacao({ houveErro, mensagemErro, cadastrados, ignoradosDuplicados, ultimoSha256, nuvemVerificada }) {
+        const painel = document.getElementById('painel_resultado_importacao');
+        painel.style.display = 'block';
+        painel.className = 'painel-resultado ' + (houveErro ? 'erro' : 'sucesso');
+
+        const listaCadastradosHtml = cadastrados.length > 0
+            ? `<ol class="lista-nomes">${cadastrados.map(n => `<li><strong>${escapeHtml(n)}</strong></li>`).join('')}</ol>`
+            : `<p style="margin: 6px 0;"><em>No athletes were registered in this run.</em></p>`;
+
+        const listaIgnoradosHtml = ignoradosDuplicados.length > 0
+            ? `<div style="margin-top: 12px;">
+                   <strong>⏭️ Athletes skipped because they are already registered (${ignoradosDuplicados.length}):</strong>
+                   <ul class="lista-nomes">${ignoradosDuplicados.map(n => `<li>${escapeHtml(n)}</li>`).join('')}</ul>
+               </div>`
+            : '';
+
+        const badgeSha = ultimoSha256
+            ? `<div style="margin-top: 10px; font-size: 12.5px; font-family: monospace; background: rgba(255,255,255,0.8); padding: 6px 10px; border-radius: 4px; border: 1px solid #bdc3c7;">
+                   🔒 SHA-256 integrity verified: <strong>${escapeHtml(ultimoSha256)}</strong>
+                   ${nuvemVerificada ? ' | ☁️ Cloud Verification: ACTIVE' : ' | 💻 Local Offline Mode'}
+               </div>`
+            : '';
+
+        if (houveErro) {
+            painel.innerHTML = `
+                <h3 style="margin-top: 0; color: #c0392b; border: none; padding: 0;">❌ Error During Import — Process Safely Stopped</h3>
+                <p style="margin: 8px 0;">
+                    An error occurred and the import was immediately canceled to protect the meet. <strong>Please check your file and fix the issue indicated below:</strong>
+                </p>
+                <div style="background: white; border-left: 4px solid #e74c3c; padding: 10px 14px; border-radius: 4px; font-weight: bold; margin-bottom: 12px;">
+                    ${escapeHtml(mensagemErro)}
+                </div>
+                <div>
+                    <strong>✅ Total athletes registered before interruption: ${cadastrados.length}</strong>
+                    ${listaCadastradosHtml}
+                </div>
+                ${listaIgnoradosHtml}
+                ${badgeSha}
+            `;
+        } else {
+            painel.innerHTML = `
+                <h3 style="margin-top: 0; color: #0e6251; border: none; padding: 0;">✅ Import Completed Successfully!</h3>
+                <div>
+                    <strong>🎉 Total new athletes registered: ${cadastrados.length}</strong>
+                    ${listaCadastradosHtml}
+                </div>
+                ${listaIgnoradosHtml}
+                ${badgeSha}
+            `;
+        }
+    }
+
+    async function executarImportacaoSequencial() {
+        const eventoId = document.getElementById('select_evento_importacao').value;
+        if (!eventoId || !regrasEventoSelecionado || registrosLidosDoArquivo.length === 0) return;
+
+        const btn = document.getElementById('btn_iniciar_importacao');
+        const wrapProg = document.getElementById('barra_progresso_wrap');
+        const fillProg = document.getElementById('barra_progresso_fill');
+        const painel = document.getElementById('painel_resultado_importacao');
+
+        btn.disabled = true;
+        painel.style.display = 'none';
+        wrapProg.style.display = 'block';
+        fillProg.style.width = '0%';
+        fillProg.innerText = '0%';
+
+        const nomesCadastrados = [];
+        const nomesIgnorados = [];
+        let ultimoSha256Valido = '';
+        let nuvemConectada = false;
+
+        try {
+            // 1. Pre-check: Cria snapshot de segurança, busca atletas locais + nuvem e valida SHA-256 inicial
+            const pre = await fetchJsonSeguro(`/api/importar-atletas/pre-check/${eventoId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (!pre.ok || !pre.dados?.sucesso) {
+                throw new Error(pre.dados?.erro || 'Initial meet verification failed.');
+            }
+
+            nuvemConectada = Boolean(pre.dados.nuvem_conectada);
+            ultimoSha256Valido = pre.dados.checksum_sha256 || '';
+
+            const atletasExistentes = [
+                ...(Array.isArray(pre.dados.inscritos_locais) ? pre.dados.inscritos_locais : []),
+                ...(Array.isArray(pre.dados.inscritos_nuvem) ? pre.dados.inscritos_nuvem : [])
+            ];
+
+            const totalLinhas = registrosLidosDoArquivo.length;
+
+            // 2. Processa 1 atleta por vez (exatamente como um humano na página de Inscrição)
+            for (let i = 0; i < totalLinhas; i++) {
+                const pct = Math.round(((i + 1) / totalLinhas) * 100);
+                fillProg.style.width = `${pct}%`;
+                fillProg.innerText = `${pct}% (${i + 1}/${totalLinhas})`;
+
+                // 2.1 Valida estritamente os dados da linha
+                const atletaLimpo = validarENormalizarAtletaDaLinha(registrosLidosDoArquivo[i], i);
+
+                // 2.2 Verifica se já existe no campeonato local ou na nuvem
+                if (atletaJaExisteNaLista(atletaLimpo, atletasExistentes)) {
+                    nomesIgnorados.push(`${atletaLimpo.nome} (${atletaLimpo.modalidade_escolhida} / ${atletaLimpo.categoria_peso_escolhida}kg)`);
+                    continue;
+                }
+
+                // 2.3 Cadastra usando a rota oficial /api/inscricoes
+                const resInsc = await fetchJsonSeguro('/api/inscricoes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        evento_id: eventoId,
+                        ...atletaLimpo
+                    })
+                });
+
+                if (!resInsc.ok || !resInsc.dados?.sucesso) {
+                    const motivoErro = resInsc.dados?.mensagem || resInsc.dados?.erro || `HTTP Error ${resInsc.status} while registering athlete.`;
+                    throw new Error(`Failed to register "${atletaLimpo.nome}" (Row ${registrosLidosDoArquivo[i].__linha_arquivo || (i + 1)}): ${motivoErro}`);
+                }
+
+                if (resInsc.dados.aviso_duplicado) {
+                    nomesIgnorados.push(`${atletaLimpo.nome} (${atletaLimpo.modalidade_escolhida} / ${atletaLimpo.categoria_peso_escolhida}kg)`);
+                    continue;
+                }
+
+                // 2.4 Verifica imediatamente a geração do novo hash SHA-256
+                const resSha = await fetchJsonSeguro(`/api/importar-atletas/verificar-sha256/${eventoId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ultimo_inscricao_id: resInsc.dados.inscricao_id })
+                });
+
+                if (!resSha.ok || !resSha.dados?.sucesso || !resSha.dados?.checksum_sha256) {
+                    throw new Error(`SHA-256 integrity error after processing "${atletaLimpo.nome}": ${resSha.dados?.erro || 'Hash not generated.'}`);
+                }
+
+                ultimoSha256Valido = resSha.dados.checksum_sha256;
+                nomesCadastrados.push(`${atletaLimpo.nome} (${atletaLimpo.sexo} — ${atletaLimpo.modalidade_escolhida} / ${atletaLimpo.categoria_peso_escolhida}kg)`);
+                atletasExistentes.push(atletaLimpo);
+            }
+
+            renderizarRelatorioImportacao({
+                houveErro: false,
+                mensagemErro: '',
+                cadastrados: nomesCadastrados,
+                ignoradosDuplicados: nomesIgnorados,
+                ultimoSha256: ultimoSha256Valido,
+                nuvemVerificada: nuvemConectada
+            });
+        } catch (erro) {
+            renderizarRelatorioImportacao({
+                houveErro: true,
+                mensagemErro: erro.message,
+                cadastrados: nomesCadastrados,
+                ignoradosDuplicados: nomesIgnorados,
+                ultimoSha256: ultimoSha256Valido,
+                nuvemVerificada: nuvemConectada
+            });
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    function baixarModeloCSV() {
+        const cabecalho = 'nome,sexo,cpf,data_nascimento,whatsapp,cidade,estado,equipe,pcd,instagram,youtube,outros_social,modalidade_escolhida,equipamento_escolhido,divisao_escolhida,categoria_peso_escolhida';
+        const ex1 = '"João da Silva",M,123.456.789-01,15/08/1995,"(11) 99999-9999","São Paulo",SP,"Equipe Titan",NAO,@joaopower,,,Full Power,Raw,Open,90';
+        const ex2 = '"Maria Oliveira",F,,,,,,,,,,,,,,';
+        const conteudo = '\uFEFF' + [cabecalho, ex1, ex2].join('\r\n');
+        const blob = new Blob([conteudo], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'modelo_importacao_atletas.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    function baixarModeloJSON() {
+        const modelo = [
+            {
+                nome: "João da Silva",
+                sexo: "M",
+                cpf: "123.456.789-01",
+                data_nascimento: "15/08/1995",
+                whatsapp: "(11) 99999-9999",
+                cidade: "São Paulo",
+                estado: "SP",
+                equipe: "Equipe Titan",
+                pcd: false,
+                instagram: "@joaopower",
+                youtube: "",
+                outros_social: "",
+                modalidade_escolhida: "Full Power",
+                equipamento_escolhido: "Raw",
+                divisao_escolhida: "Open",
+                categoria_peso_escolhida: "90"
+            },
+            {
+                nome: "Maria Oliveira",
+                sexo: "F"
+            }
+        ];
+        const blob = new Blob([JSON.stringify(modelo, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'modelo_importacao_atletas.json';
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+</script>
+</body>
+</html>

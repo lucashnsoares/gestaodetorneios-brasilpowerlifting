@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloud & Organizer Hub - Powerlifting</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #eef2f3; margin: 0; }
+        .container { max-width: 1040px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        h1, h2 { color: #2c3e50; border-bottom: 2px solid #1abc9c; padding-bottom: 10px; margin-top: 0; }
+        .linha { display: flex; gap: 15px; flex-wrap: wrap; margin-top: 12px; align-items: flex-end; }
+        .linha > div { flex: 1; min-width: 210px; }
+        label { font-weight: bold; font-size: 13px; display: block; margin-bottom: 5px; color: #555; }
+        input[type="text"], input[type="password"], select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 14px; }
+
+        .card-secao { background: #f8f9fa; border: 1px solid #dfe6e9; border-radius: 8px; padding: 20px; margin-bottom: 25px; }
+        .aviso-nuvem-opcional { background: #e8f8f5; border-left: 5px solid #16a085; padding: 12px 15px; border-radius: 5px; margin-bottom: 15px; color: #0e6251; font-size: 13.5px; line-height: 1.5; }
+        
+        .badge-org { padding: 7px 14px; border-radius: 15px; font-weight: bold; font-size: 13.5px; display: inline-flex; align-items: center; gap: 7px; }
+        .badge-org.conectado { background: #ebf5fb; color: #1f618d; border: 1px solid #3498db; }
+        .badge-org.desconectado { background: #fadbd8; color: #c0392b; border: 1px solid #e74c3c; }
+
+        .badge-hash { background: #ecf0f1; color: #2c3e50; border: 1px solid #bdc3c7; padding: 2px 7px; border-radius: 4px; font-family: monospace; font-size: 11px; display: inline-block; margin-top: 4px; }
+
+        /* Aviso ao lado do botão Salvar Configuração */
+        .barra-salvar-config { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; margin-top: 16px; }
+        .msg-status-nuvem { flex: 1; min-width: 260px; font-weight: bold; font-size: 14px; padding: 10px 14px; border-radius: 6px; display: flex; align-items: center; gap: 8px; line-height: 1.4; }
+        .msg-status-nuvem.erro { background: #fff5f5; color: #ff0000; border: 2px solid #e74c3c; }
+        .msg-status-nuvem.conectado { background: #ebf5fb; color: #1f618d; border: 2px solid #3498db; }
+
+        .btn { padding: 11px 18px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 14px; color: white; }
+        .btn:disabled { background: #95a5a6 !important; cursor: not-allowed; }
+        .btn-verde { background: #16a085; }
+        .btn-verde:hover { background: #1abc9c; }
+        .btn-azul { background: #2980b9; }
+        .btn-azul:hover { background: #3498db; }
+        .btn-laranja { background: #d35400; }
+        .btn-laranja:hover { background: #e67e22; }
+        .btn-roxo { background: #8e44ad; }
+        .btn-roxo:hover { background: #9b59b6; }
+
+        .tabela-nuvem { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px; background: white; }
+        .tabela-nuvem th, .tabela-nuvem td { padding: 12px; border: 1px solid #ddd; text-align: left; }
+        .tabela-nuvem th { background: #2c3e50; color: white; }
+
+        /* Modal / Painel de Opções de Download (3 Modos + Cofre de 20 Snapshots) */
+        .painel-importacao { display: none; background: #fff8e1; border: 2px solid #f39c12; border-radius: 8px; padding: 20px; margin-top: 20px; }
+        .opcao-modo { display: block; background: white; border: 2px solid #ddd; border-radius: 6px; padding: 12px 15px; margin-bottom: 10px; cursor: pointer; }
+        .opcao-modo:hover { border-color: #16a085; }
+        .opcao-modo input { margin-right: 8px; transform: scale(1.2); }
+        .box-cofre-snapshots { background: #e8f8f5; border: 1px solid #16a085; border-radius: 6px; padding: 12px 15px; margin-bottom: 15px; }
+
+        /* Rodapé e Modal de Privacidade / LGPD (Microsoft Store Policy 10.5) */
+        .rodape-privacidade { margin-top: 25px; padding-top: 15px; border-top: 1px solid #dfe6e9; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; font-size: 13px; color: #7f8c8d; }
+        .link-privacidade { color: #2980b9; text-decoration: underline; cursor: pointer; font-weight: bold; background: none; border: none; padding: 0; font-size: 13px; }
+        .modal-lgpd-fundo { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.65); z-index: 9999; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; }
+        .modal-lgpd-caixa { background: white; max-width: 680px; width: 100%; border-radius: 8px; padding: 25px; box-shadow: 0 8px 25px rgba(0,0,0,0.3); max-height: 85vh; overflow-y: auto; line-height: 1.55; color: #2c3e50; font-size: 14px; }
+    </style>
+</head>
+<body>
+<nav style="background: #2c3e50; padding: 15px; margin-bottom: 20px; display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+    <a href="/" style="color: white; text-decoration: none; font-weight: bold;">🏠 Home</a>
+    <a href="/criar-evento" style="color: #bdc3c7; text-decoration: none;">1. Meet</a>
+    <a href="/inscricao" style="color: #bdc3c7; text-decoration: none;">2. Registration</a>
+    <a href="/baterias" style="color: #bdc3c7; text-decoration: none;">3. Flights</a>
+    <a href="/pesagem" style="color: #bdc3c7; text-decoration: none;">4. Weigh-in</a>
+    <a href="/admin" style="color: #bdc3c7; text-decoration: none;">5. Score Table</a>
+    <a href="/display" style="color: #2ecc71; text-decoration: none;">6. Scoreboard</a>
+    <a href="/resultados" style="color: #f1c40f; text-decoration: none;">7. Results 🏆</a>
+    <a href="/nuvem" style="color: #1abc9c; text-decoration: none; font-weight: bold;">☁️ Cloud</a>
+</nav>
+
+<div class="container">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 15px;">
+        <h1 style="margin: 0; border: none;">☁️ Cloud Hub & Meet Synchronization</h1>
+        <span class="badge-org desconectado" id="badge_organizador_atual">Not connected to the cloud (LOCAL)</span>
+    </div>
+
+<!-- 1. LOGIN / IDENTIFICAÇÃO DO ORGANIZADOR -->
+    <div class="card-secao">
+        <h2>1. Organizer Identification (Cloud Synchronization — 100% Optional)</h2>
+        <div class="aviso-nuvem-opcional">
+            ✅ <strong>CLOUD USE IS 100% OPTIONAL:</strong> This application works <strong>100% fully and autonomously Offline in <code>LOCAL</code> mode</strong> with no need to create an account, enter a password, or have an internet connection. You can also manually export and import meets as <code>.JSON</code> files below. Only fill in the Remote Cloud fields if your federation/gym has its own online synchronization server.
+            <br><br>
+            To download online registrations or publish results on the web, configure your cloud or request a free license at <a href="https://brasilpowerlifting.com.br" target="_blank" rel="noopener noreferrer" style="color: #0e6251; font-weight: bold;">https://brasilpowerlifting.com.br</a>
+        </div>
+        <div class="linha">
+            <div>
+                <label>Organizer ID (Offline Default: LOCAL)</label>
+                <input type="text" id="cfg_organizador_id" placeholder="E.g.: LOCAL, TITAN_GYM, GPC_SP">
+            </div>
+            <div>
+                <label>Organization / Federation Name (Optional)</label>
+                <input type="text" id="cfg_organizador_nome" placeholder="E.g.: Titan Powerlifting Cup">
+            </div>
+            <div>
+                <label>Remote Cloud Server URL <small style="color:#888;">(Empty = Local Vault)</small></label>
+                <input type="text" id="cfg_cloud_url" placeholder="https://app.brasilpowerlifting.com.br">
+            </div>
+            <div>
+                <label>Access Key / Token <small style="color:#888;">(Remote Cloud Only)</small></label>
+                <input type="password" id="cfg_cloud_token" placeholder="Optional (leave empty for LOCAL mode)">
+            </div>
+        </div>
+
+        <div class="barra-salvar-config">
+            <button class="btn btn-verde" id="btn_salvar_config_nuvem" onclick="salvarConfigNuvem()">🔑 Save Configuration</button>
+            <div id="status_conexao_nuvem_msg" class="msg-status-nuvem erro">
+                <span>🚫 Not connected to the cloud (Checking configuration...)</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- NOVO BOTÃO EM nuvem.html PARA ABRIR A PÁGINA ISOLADA DE IMPORTAÇÃO DE ATLETAS -->
+    <div class="card-secao" style="border-left: 5px solid #2980b9; background: #ebf5fb;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+            <div>
+                <h2 style="margin: 0 0 6px 0; border: none; padding: 0; color: #1f618d;">📥 Bulk Import Athlete List (.CSV, .JSON ou .Excel)</h2>
+                <p style="margin: 0; font-size: 13.5px; color: #2c3e50;">
+                    Add athletes to a championship already created on your computer from a standardized spreadsheet, with Local + Cloud duplicate checking and SHA-256 validation (beta).
+                </p>
+            </div>
+            <a href="/importar-atletas" class="btn btn-azul" style="text-decoration: none; display: inline-block;">
+                📄 Open Bulk Import ➡️
+            </a>
+        </div>
+    </div>
+
+    <!-- 2. ENVIAR CAMPEONATO LOCAL PARA A NUVEM OU EXPORTAR ARQUIVO -->
+    <div class="card-secao">
+        <h2>2. Save Meet Snapshot or Export File (.JSON)</h2>
+        <div class="linha">
+            <div style="flex: 2;">
+                <label>Select a Local Meet</label>
+                <select id="select_evento_local_upload"></select>
+            </div>
+            <div style="flex: 0 0 auto; display: flex; gap: 10px; flex-wrap: wrap;">
+                <button class="btn btn-azul" id="btn_publicar_nuvem" onclick="publicarEventoNaNuvem(false)">☁️ Update / Publish Snapshot</button>
+                <button class="btn btn-roxo" onclick="publicarEventoNaNuvem(true)">📑 Create Independent Copy</button>
+                <button class="btn btn-laranja" onclick="exportarArquivoJSONLocal()">💾 Download File (.JSON)</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. BAIXAR CAMPEONATOS DA NUVEM (COM OS 3 MODOS DE IMPORTAÇÃO + COFRE DE 20 SNAPSHOTS) -->
+    <div class="card-secao">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <h2 style="margin: 0;">3. Meets Available in Vault / Cloud (For this Organizer)</h2>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <label class="btn btn-roxo" style="margin: 0; display: inline-block;">
+                    📂 Import from File (.JSON)
+                    <input type="file" accept=".json" style="display: none;" onchange="carregarPacoteDeArquivo(event)">
+                </label>
+                <button class="btn btn-verde" onclick="buscarCampeonatosNaNuvem()">🔄 Refresh List</button>
+            </div>
+        </div>
+
+        <table class="tabela-nuvem">
+            <thead>
+                <tr>
+                    <th>Meet</th>
+                    <th>Meet Date</th>
+                    <th>Registered Lifters</th>
+                    <th>Version / SHA-256 Integrity</th>
+                    <th>Last Sync</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="tbody_campeonatos_nuvem"></tbody>
+        </table>
+
+        <!-- PAINEL DE ESCOLHA DOS 3 MODOS DE DOWNLOAD/IMPORTAÇÃO -->
+        <div class="painel-importacao" id="painel_opcoes_importacao">
+            <h3 style="margin-top: 0; color: #d35400;" id="titulo_importacao_selecionada">Download Meet from Cloud</h3>
+
+            <!-- COFRE DE 20 SNAPSHOTS POINT-IN-TIME -->
+            <div class="box-cofre-snapshots" id="bloco_cofre_snapshots">
+                <label style="color: #117864; margin-bottom: 6px;">🛡️ Restore Point (Vault of the Last 20 Intact Versions):</label>
+                <select id="select_snapshot_historico">
+                    <option value="">📌 Latest Version (Default)</option>
+                </select>
+            </div>
+
+            <p style="font-size: 14px; color: #444;">Choose exactly how you want to import this meet's data into the application:</p>
+
+            <label class="opcao-modo">
+                <input type="radio" name="modo_importacao" value="SUBSTITUIR" checked onchange="atualizarCamposModoImportacao()">
+                <strong>1. Replace / Update Meet in Offline App (Also restores the state of the 5 Platforms):</strong>
+                <div style="font-size: 13px; color: #555; margin-left: 24px;">
+                    Updates the local meet with all rules, registrations, weigh-ins, flights, attempts, and the exact platform state saved in the snapshot (creates an automatic local backup before replacing).
+                </div>
+            </label>
+
+            <label class="opcao-modo">
+                <input type="radio" name="modo_importacao" value="COPIA" onchange="atualizarCamposModoImportacao()">
+                <strong>2. Download and Create a Full Copy of the Meet:</strong>
+                <div style="font-size: 13px; color: #555; margin-left: 24px;">
+                    Creates an independent duplicate meet (keeping original data untouched), with an option to also save the copy to the Cloud.
+                </div>
+            </label>
+
+            <label class="opcao-modo">
+                <input type="radio" name="modo_importacao" value="APENAS_ATLETAS" onchange="atualizarCamposModoImportacao()">
+                <strong>3. Download ONLY Lifters and Registrations (Clear Test Weigh-ins and Attempts):</strong>
+                <div style="font-size: 13px; color: #555; margin-left: 24px;">
+                    Ideal after testing the app with simulated data! Creates the official meet (or resets the existing one) bringing in all registered lifters and their categories, while clearing weigh-ins, flights, and attempts.
+                </div>
+            </label>
+
+            <div class="linha" style="margin-top: 15px;">
+                <div id="bloco_alvo_local">
+                    <label>Target Local Meet (Optional — leave blank to auto-detect/create)</label>
+                    <select id="select_evento_alvo_importacao"></select>
+                </div>
+                <div id="bloco_novo_nome">
+                    <label>Name for the Imported Meet (Optional)</label>
+                    <input type="text" id="input_novo_nome_importacao" placeholder="Leave blank to use the default name">
+                </div>
+            </div>
+
+            <div id="bloco_salvar_copia_nuvem" style="display: none; margin-top: 12px;">
+                <label style="cursor: pointer; display: flex; align-items: center; gap: 8px; color: #2c3e50;">
+                    <input type="checkbox" id="check_salvar_copia_na_nuvem" checked style="width: 18px; height: 18px;">
+                    ☁️ Also save this new copy to the Organizer's Cloud repository
+                </label>
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button class="btn btn-verde" id="btn_confirmar_importacao" onclick="executarImportacaoDaNuvem()">⬇️ Confirm Download and Import</button>
+                <button class="btn" style="background: #7f8c8d;" onclick="fecharPainelImportacao()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="rodape-privacidade">
+        <span>🏢 Developed by <strong>Hiroshi Tecnologia</strong> — Brasil Powerlifting Meet Management System</span>
+        <button type="button" class="link-privacidade" onclick="abrirModalPrivacidade()">🔒 Privacy and Data Protection Policy (LGPD)</button>
+    </div>
+</div>
+
+<!-- MODAL DE POLÍTICA DE PRIVACIDADE E LGPD (CONFORMIDADE MICROSOFT STORE 10.5) -->
+<div class="modal-lgpd-fundo" id="modal_privacidade_lgpd" onclick="if(event.target === this) fecharModalPrivacidade()">
+    <div class="modal-lgpd-caixa">
+        <h2 style="margin-top: 0; color: #2c3e50;">🔒 Privacy and Data Protection Policy (LGPD)</h2>
+        <p>The <strong>Brasil Powerlifting Meet Management System</strong> (published by <strong>Hiroshi Tecnologia</strong>) respects the privacy of organizers, referees, and lifters in compliance with the General Data Protection Law (Law No. 13.709/2018 - LGPD) and Microsoft Store Policies.</p>
+        <p><strong>1. 100% Local Storage by Default:</strong> All data registered in the system (including name, category, bodyweight, and optional fields such as ID/CPF, date of birth, WhatsApp, social media, and adaptive/para-athlete status) is stored exclusively in the local SQLite database on the organizer's computer (<code>%LOCALAPPDATA%\BrasilPowerlifting</code>).</p>
+        <p><strong>2. Minimal and Optional Collection:</strong> No sensitive data is required for running a meet. Fields such as ID/CPF, date of birth, and phone number are strictly optional and used only by the local organizer to identify lifters across competitions.</p>
+        <p><strong>3. Optional Cloud Synchronization:</strong> The application does not send data to external servers without explicit action by the organizer. Remote synchronization only occurs if the organizer voluntarily configures their own URL and Access Key/Token on this screen.</p>
+        <p><strong>4. Complete Deletion upon Uninstallation:</strong> The organizer can delete lifters or meets at any time within the application. Upon uninstalling the software via Windows / Microsoft Store, all local databases and backups are removed from the device.</p>
+        <div style="text-align: right; margin-top: 20px;">
+            <button type="button" class="btn btn-verde" onclick="fecharModalPrivacidade()">Got It & Close</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let listaEventosLocais = [];
+    let listaNuvem = [];
+    let nuvemIdSelecionado = null;
+    let pacoteArquivoCarregado = null;
+
+    const SVG_NUVEM_AZUL = `<svg width="20" height="17" viewBox="0 0 24 20" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0;"><path d="M6.5 18H18C20.7614 18 23 15.7614 23 13C23 10.4244 21.0519 8.30295 18.5499 8.0309C17.7556 4.60016 14.6775 2 11 2C6.85786 2 3.5 5.35786 3.5 9.5C3.5 9.78971 3.51643 10.0756 3.5484 10.3567C1.52275 11.0567 0 12.9839 0 15.25C0 17.8734 2.12665 18 4.75 18H6.5Z" fill="#5dade2" stroke="#2980b9" stroke-width="1.8"/></svg>`;
+    const SVG_NUVEM_VERMELHA_CORTADA = `<svg width="20" height="17" viewBox="0 0 24 20" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0;"><path d="M6.5 18H18C20.7614 18 23 15.7614 23 13C23 10.4244 21.0519 8.30295 18.5499 8.0309C17.7556 4.60016 14.6775 2 11 2C6.85786 2 3.5 5.35786 3.5 9.5C3.5 9.78971 3.51643 10.0756 3.5484 10.3567C1.52275 11.0567 0 12.9839 0 15.25C0 17.8734 2.12665 18 4.75 18H6.5Z" fill="#f5b7b1" stroke="#c0392b" stroke-width="1.8"/><line x1="3" y1="1.5" x2="21" y2="18.5" stroke="#ff0000" stroke-width="2.6" stroke-linecap="round"/></svg>`;
+
+    window.onerror = function(msg, url, lineNo) {
+        console.error("🛡️ [AIRBAG NUVEM]:", msg, "Linha:", lineNo);
+        return false;
+    };
+
+    function abrirModalPrivacidade() {
+        document.getElementById('modal_privacidade_lgpd').style.display = 'flex';
+    }
+
+    function fecharModalPrivacidade() {
+        document.getElementById('modal_privacidade_lgpd').style.display = 'none';
+    }
+
+    function escapeHtml(texto) {
+        if (texto === undefined || texto === null) return '';
+        return String(texto)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function atualizarIndicadorVisualNuvem(conectado, tipoMotivo, detalheErro = '') {
+        const boxMsg = document.getElementById('status_conexao_nuvem_msg');
+        const badgeTopo = document.getElementById('badge_organizador_atual');
+        const orgId = (document.getElementById('cfg_organizador_id').value || 'LOCAL').trim().toUpperCase() || 'LOCAL';
+
+        if (!boxMsg || !badgeTopo) return;
+
+        if (conectado) {
+            boxMsg.className = 'msg-status-nuvem conectado';
+            boxMsg.innerHTML = `${SVG_NUVEM_AZUL} <span>Successfully connected to the Cloud! Active synchronization for organizer <strong>${escapeHtml(orgId)}</strong>.</span>`;
+
+            badgeTopo.className = 'badge-org conectado';
+            badgeTopo.innerHTML = `${SVG_NUVEM_AZUL} <span>Connected to the Cloud (${escapeHtml(orgId)})</span>`;
+            return;
+        }
+
+        boxMsg.className = 'msg-status-nuvem erro';
+        badgeTopo.className = 'badge-org desconectado';
+        badgeTopo.innerHTML = `${SVG_NUVEM_VERMELHA_CORTADA} <span>Not connected to the cloud (${escapeHtml(orgId)})</span>`;
+
+        if (tipoMotivo === 'CREDENCIAIS_INVALIDAS') {
+            boxMsg.innerHTML = `${SVG_NUVEM_VERMELHA_CORTADA} <span>❌ Incorrect Organizer ID or Password/Token! NOT CONNECTED TO THE CLOUD (your data is NOT being synced to the cloud).</span>`;
+        } else if (tipoMotivo === 'MODO_LOCAL') {
+            boxMsg.innerHTML = `${SVG_NUVEM_VERMELHA_CORTADA} <span>Not connected to the cloud (Local Offline Mode active — enter an ID other than LOCAL and the Password/Token to connect).</span>`;
+        } else if (tipoMotivo === 'SEM_TOKEN') {
+            boxMsg.innerHTML = `${SVG_NUVEM_VERMELHA_CORTADA} <span>❌ Blank Password / Access Token! NOT CONNECTED TO THE CLOUD (enter the Token to sync).</span>`;
+        } else {
+            const extra = detalheErro ? ` (${escapeHtml(detalheErro)})` : '';
+            boxMsg.innerHTML = `${SVG_NUVEM_VERMELHA_CORTADA} <span>❌ Not connected to the cloud! Check your Organizer ID, Password/Token, and internet connection${extra}.</span>`;
+        }
+    }
+
+    async function fetchSeguro(url, opcoes = {}, timeoutMs = 10000) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            const res = await fetch(url, { ...opcoes, signal: controller.signal });
+            clearTimeout(timer);
+            const dados = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                const err = new Error(dados.erro || `HTTP Error ${res.status}`);
+                err.status = res.status;
+                throw err;
+            }
+            return dados;
+        } catch (erro) {
+            clearTimeout(timer);
+            throw erro;
+        }
+    }
+
+    window.onload = async function() {
+        await carregarConfiguracaoOrganizador();
+        await carregarEventosLocais();
+        await buscarCampeonatosNaNuvem();
+    };
+
+    async function carregarConfiguracaoOrganizador() {
+        try {
+            const cfg = await fetchSeguro('/api/nuvem/config');
+            document.getElementById('cfg_organizador_id').value = cfg.organizador_id || 'LOCAL';
+            document.getElementById('cfg_organizador_nome').value = cfg.organizador_nome || '';
+            document.getElementById('cfg_cloud_url').value = cfg.cloud_url || '';
+            document.getElementById('cfg_cloud_token').value = cfg.cloud_token || '';
+        } catch (e) {
+            console.error("Erro ao carregar config da nuvem:", e);
+        }
+    }
+
+    async function salvarConfigNuvem() {
+        const orgId = document.getElementById('cfg_organizador_id').value.trim() || 'LOCAL';
+        const btn = document.getElementById('btn_salvar_config_nuvem');
+        if (btn) btn.disabled = true;
+
+        try {
+            const res = await fetchSeguro('/api/nuvem/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    organizador_id: orgId,
+                    organizador_nome: document.getElementById('cfg_organizador_nome').value.trim(),
+                    cloud_url: document.getElementById('cfg_cloud_url').value.trim(),
+                    cloud_token: document.getElementById('cfg_cloud_token').value.trim()
+                })
+            });
+            document.getElementById('cfg_organizador_id').value = res.organizador_id;
+
+            const statusConexao = await buscarCampeonatosNaNuvem();
+
+            if (statusConexao.conectado) {
+                alert(`☁️ Successfully connected to the Cloud! Organizer: ${res.organizador_id}`);
+            } else if (statusConexao.motivo === 'CREDENCIAIS_INVALIDAS') {
+                alert(
+                    `❌ CLOUD AUTHENTICATION ERROR!
+
+` +
+                    `The Organizer ID ("${res.organizador_id}") or Password/Token entered is INCORRECT.
+
+` +
+                    `⚠️ The application is NOT connected to the cloud and your data is not being synced remotely.`
+                );
+            } else if (statusConexao.motivo === 'SEM_TOKEN') {
+                alert(
+                    `⚠️ NOT CONNECTED TO THE CLOUD!
+
+` +
+                    `You entered Organizer "${res.organizador_id}", but left the Access Key / Token (password) blank.
+` +
+                    `Fill in the Token to connect to the cloud or use "LOCAL" to operate offline.`
+                );
+            } else if (statusConexao.motivo === 'MODO_LOCAL') {
+                alert(`LOCAL Offline Mode saved. The application is operating locally (not connected to the cloud).`);
+            } else {
+                alert(`❌ Not connected to the cloud: ${statusConexao.erro || 'Check your credentials and connection.'}`);
+            }
+        } catch (e) {
+            atualizarIndicadorVisualNuvem(false, 'ERRO_REDE', e.message);
+            alert("Error saving configuration: " + e.message);
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    }
+
+    async function carregarEventosLocais() {
+        try {
+            listaEventosLocais = await fetchSeguro('/api/eventos');
+            const selUp = document.getElementById('select_evento_local_upload');
+            const selAlvo = document.getElementById('select_evento_alvo_importacao');
+            const valUpAntes = selUp.value;
+
+            let htmlUp = '<option value="">-- Select a Local Meet --</option>';
+            let htmlAlvo = '<option value="">-- Auto-Detect / Create --</option>';
+
+            listaEventosLocais.forEach(ev => {
+                const statusSync = Number(ev.sync_nuvem) === 1 ? '🟢 Synced' : '⏳ Pending Changes';
+                const versaoTxt = `v${ev.versao_sync || 1}`;
+                htmlUp += `<option value="${ev.id}">${escapeHtml(ev.nome)} (${escapeHtml(ev.data)}) — [${statusSync} | ${versaoTxt}]</option>`;
+                htmlAlvo += `<option value="${ev.id}">${escapeHtml(ev.nome)} (Local ID #${ev.id})</option>`;
+            });
+
+            selUp.innerHTML = htmlUp;
+            selAlvo.innerHTML = htmlAlvo;
+
+            if (valUpAntes && Array.from(selUp.options).some(o => String(o.value) === String(valUpAntes))) {
+                selUp.value = valUpAntes;
+            }
+        } catch (e) {
+            console.error("Erro ao listar eventos locais:", e);
+        }
+    }
+
+    async function sincronizarCredenciaisDigitadasSilenciosamente() {
+        const orgId = document.getElementById('cfg_organizador_id').value.trim();
+        const token = document.getElementById('cfg_cloud_token').value.trim();
+        if (!orgId) return;
+        try {
+            const res = await fetchSeguro('/api/nuvem/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    organizador_id: orgId,
+                    organizador_nome: document.getElementById('cfg_organizador_nome').value.trim(),
+                    cloud_url: document.getElementById('cfg_cloud_url').value.trim(),
+                    cloud_token: token
+                })
+            });
+            if (res && res.organizador_id) {
+                document.getElementById('cfg_organizador_id').value = res.organizador_id;
+            }
+        } catch (e) {
+            console.warn("Aviso ao sincronizar config local da nuvem:", e.message);
+        }
+    }
+
+    async function publicarEventoNaNuvem(comoNovaCopia) {
+        const evId = document.getElementById('select_evento_local_upload').value;
+        if (!evId) {
+            alert("Please select which local meet you want to save/upload first!");
+            return;
+        }
+
+        const btn = document.getElementById('btn_publicar_nuvem');
+        if (btn) btn.disabled = true;
+
+        try {
+            await sincronizarCredenciaisDigitadasSilenciosamente();
+            const orgId = (document.getElementById('cfg_organizador_id').value.trim() || 'LOCAL').toUpperCase();
+            const token = document.getElementById('cfg_cloud_token').value.trim();
+
+            const res = await fetchSeguro(`/api/nuvem/publicar/${evId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    organizador_id: orgId,
+                    como_nova_copia: comoNovaCopia
+                })
+            });
+
+            if (res.sucesso) {
+                const hashCurto = res.checksum_sha256 ? res.checksum_sha256.slice(0, 10) : '--';
+
+                if (res.enviado_remoto) {
+                    atualizarIndicadorVisualNuvem(true, 'CONECTADO');
+                    alert(`☁️ Meet uploaded and synced with the Remote Cloud under Organizer [${res.organizador_id}] (${res.qtd_atletas} registrations | SHA-256: ${hashCurto}...)!`);
+                } else {
+                    const msgErro = String(res.aviso_remoto || '');
+                    if (msgErro.includes('401') || msgErro.includes('403') || msgErro.toLowerCase().includes('autentica') || msgErro.toLowerCase().includes('token')) {
+                        atualizarIndicadorVisualNuvem(false, 'CREDENCIAIS_INVALIDAS', msgErro);
+                        alert(
+                            `❌ FAILED TO UPLOAD TO REMOTE CLOUD!
+
+` +
+                            `The Organizer ID or Password/Token is incorrect (${msgErro}).
+` +
+                            `The snapshot was saved ONLY locally on this computer and is NOT in the cloud!`
+                        );
+                    } else if (orgId === 'LOCAL') {
+                        atualizarIndicadorVisualNuvem(false, 'MODO_LOCAL');
+                        alert(`💾 Snapshot saved to the Local Vault on this computer (LOCAL Offline Mode — not uploaded to the cloud).`);
+                    } else if (!token) {
+                        atualizarIndicadorVisualNuvem(false, 'SEM_TOKEN');
+                        alert(`⚠️ Snapshot saved locally only! The Password/Token is blank, so the meet was NOT uploaded to the cloud.`);
+                    } else {
+                        atualizarIndicadorVisualNuvem(false, 'ERRO_REDE', msgErro);
+                        alert(`⚠️ NOT CONNECTED TO THE CLOUD!
+
+Could not upload to the remote server (${msgErro}). The snapshot was saved locally on this computer only.`);
+                    }
+                }
+
+                await carregarEventosLocais();
+                await buscarCampeonatosNaNuvem();
+            }
+        } catch (e) {
+            alert("Error publishing meet: " + e.message);
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    }
+
+    async function exportarArquivoJSONLocal() {
+        const evId = document.getElementById('select_evento_local_upload').value;
+        const orgId = document.getElementById('cfg_organizador_id').value.trim() || 'LOCAL';
+        if (!evId) {
+            alert("Please select a local meet first!");
+            return;
+        }
+
+        try {
+            const pub = await fetchSeguro(`/api/nuvem/publicar/${evId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ organizador_id: orgId, apenas_local: true })
+            });
+            const pacote = await fetchSeguro(`/api/nuvem/pacote/${encodeURIComponent(pub.nuvem_id)}?apenas_local=1`);
+            const blob = new Blob([JSON.stringify(pacote, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `campeonato_${(pacote.evento?.nome || 'powerlifting').replace(/[^a-zA-Z0-9_-]/g, '_')}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            await carregarEventosLocais();
+        } catch (e) {
+            alert("Error exporting file: " + e.message);
+        }
+    }
+
+    async function buscarCampeonatosNaNuvem() {
+        await sincronizarCredenciaisDigitadasSilenciosamente();
+        const orgId = (document.getElementById('cfg_organizador_id').value.trim() || 'LOCAL').toUpperCase();
+        const token = document.getElementById('cfg_cloud_token').value.trim();
+        const tbody = document.getElementById('tbody_campeonatos_nuvem');
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Searching for meets...</td></tr>';
+
+        try {
+            const lista = await fetchSeguro(`/api/nuvem/campeonatos?organizador_id=${encodeURIComponent(orgId)}`);
+            listaNuvem = Array.isArray(lista) ? lista : [];
+
+            let statusRetorno = { conectado: false, motivo: 'MODO_LOCAL' };
+            if (orgId === 'LOCAL' || !orgId) {
+                atualizarIndicadorVisualNuvem(false, 'MODO_LOCAL');
+                statusRetorno = { conectado: false, motivo: 'MODO_LOCAL' };
+            } else if (!token) {
+                atualizarIndicadorVisualNuvem(false, 'SEM_TOKEN');
+                statusRetorno = { conectado: false, motivo: 'SEM_TOKEN' };
+            } else {
+                atualizarIndicadorVisualNuvem(true, 'CONECTADO');
+                statusRetorno = { conectado: true, motivo: 'CONECTADO' };
+            }
+
+            if (listaNuvem.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#7f8c8d; padding: 20px;">No saved meets found for organizer <strong>${escapeHtml(orgId)}</strong>. Save a snapshot in Section 2 above!</td></tr>`;
+                return statusRetorno;
+            }
+
+            let htmlLinhas = '';
+            listaNuvem.forEach((item, index) => {
+                const hashCurto = item.checksum_sha256 ? `${String(item.checksum_sha256).slice(0, 12)}...` : 'Verified';
+                const versaoNum = item.versao_sync || 1;
+                htmlLinhas += `
+                    <tr>
+                        <td><strong>${escapeHtml(item.nome_evento)}</strong><br><small style="color:#7f8c8d;">ID: ${escapeHtml(item.nuvem_id)}</small></td>
+                        <td>${escapeHtml(item.data_evento)}</td>
+                        <td><strong>${item.qtd_atletas || 0}</strong> lifter(s)</td>
+                        <td>
+                            <strong>v${versaoNum}</strong><br>
+                            <span class="badge-hash" title="SHA-256: ${escapeHtml(item.checksum_sha256 || '')}">🔒 ${escapeHtml(hashCurto)}</span>
+                        </td>
+                        <td>${escapeHtml(item.atualizado_em || '')}</td>
+                        <td>
+                            <button class="btn btn-verde" onclick="abrirOpcoesDeDownload(${index})">⬇️ Download / Restore...</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = htmlLinhas;
+            return statusRetorno;
+        } catch (e) {
+            const ehErroCredencial = (e.status === 401 || e.status === 403 || String(e.message).toLowerCase().includes('autentica') || String(e.message).toLowerCase().includes('token'));
+            const motivo = ehErroCredencial ? 'CREDENCIAIS_INVALIDAS' : 'ERRO_REDE';
+            atualizarIndicadorVisualNuvem(false, motivo, e.message);
+
+            tbody.innerHTML = `<tr><td colspan="6" style="color:#ff0000; font-weight:bold; text-align:center; padding: 18px;">❌ NOT CONNECTED TO THE CLOUD: ${escapeHtml(e.message)}</td></tr>`;
+            return { conectado: false, motivo: motivo, erro: e.message };
+        }
+    }
+
+    async function abrirOpcoesDeDownload(index) {
+        const item = listaNuvem[index];
+        if (!item) return;
+
+        pacoteArquivoCarregado = null;
+        nuvemIdSelecionado = item.nuvem_id;
+        document.getElementById('titulo_importacao_selecionada').innerText = `⬇️ Configure Restore / Download: ${item.nome_evento} (${item.qtd_atletas} lifters)`;
+        document.getElementById('input_novo_nome_importacao').value = '';
+        document.getElementById('bloco_cofre_snapshots').style.display = 'block';
+        document.getElementById('painel_opcoes_importacao').style.display = 'block';
+        atualizarCamposModoImportacao();
+
+        // Carrega o histórico das últimas 20 versões íntegras deste campeonato no Cofre Point-in-Time
+        const selSnap = document.getElementById('select_snapshot_historico');
+        let htmlSnap = '<option value="">📌 Latest Version (Default)</option>';
+        try {
+            const historico = await fetchSeguro(`/api/nuvem/historico/${encodeURIComponent(item.nuvem_id)}`);
+            if (Array.isArray(historico) && historico.length > 0) {
+                historico.forEach((snap, idxSnap) => {
+                    const hashCurto = snap.checksum_sha256 ? String(snap.checksum_sha256).slice(0, 8) : '';
+                    const rotuloAtual = idxSnap === 0 ? ' [Latest]' : '';
+                    htmlSnap += `<option value="${snap.id}">🕒 Snapshot #v${snap.versao_sync || 1} (${escapeHtml(snap.criado_em)}) — ${snap.qtd_atletas || 0} lifters [SHA: ${escapeHtml(hashCurto)}]${rotuloAtual}</option>`;
+                });
+            }
+        } catch (e) {
+            console.warn("Aviso ao carregar histórico de snapshots:", e.message);
+        }
+        selSnap.innerHTML = htmlSnap;
+    }
+
+    function carregarPacoteDeArquivo(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const json = JSON.parse(e.target.result);
+                if (!json || !json.evento) {
+                    alert("Invalid meet JSON file.");
+                    return;
+                }
+                pacoteArquivoCarregado = json;
+                nuvemIdSelecionado = null;
+                document.getElementById('titulo_importacao_selecionada').innerText = `📂 Import File: ${json.evento.nome} (${(json.inscricoes || []).length} lifters)`;
+                document.getElementById('input_novo_nome_importacao').value = '';
+                document.getElementById('bloco_cofre_snapshots').style.display = 'none';
+                document.getElementById('painel_opcoes_importacao').style.display = 'block';
+                atualizarCamposModoImportacao();
+            } catch (err) {
+                alert("Error reading the JSON file: " + err.message);
+            }
+        };
+        reader.readAsText(file);
+        event.target.value = '';
+    }
+
+    function atualizarCamposModoImportacao() {
+        const modo = document.querySelector('input[name="modo_importacao"]:checked').value;
+        document.getElementById('bloco_salvar_copia_nuvem').style.display = (modo === 'COPIA' || modo === 'APENAS_ATLETAS') ? 'block' : 'none';
+    }
+
+    function fecharPainelImportacao() {
+        document.getElementById('painel_opcoes_importacao').style.display = 'none';
+        nuvemIdSelecionado = null;
+        pacoteArquivoCarregado = null;
+    }
+
+    async function executarImportacaoDaNuvem() {
+        const modo = document.querySelector('input[name="modo_importacao"]:checked').value;
+        const alvoId = document.getElementById('select_evento_alvo_importacao').value;
+        const novoNome = document.getElementById('input_novo_nome_importacao').value.trim();
+        const salvarCopiaNuvem = document.getElementById('check_salvar_copia_na_nuvem').checked;
+        const snapshotId = document.getElementById('select_snapshot_historico').value;
+
+        if (modo === 'SUBSTITUIR') {
+            const confirmar = confirm(
+                "⚠️ CONFIRM REPLACEMENT / RESTORE:\n\n" +
+                "An automatic backup snapshot of the local database will be saved before importing.\n" +
+                "Do you want to replace the local data of this meet with the selected version?"
+            );
+            if (!confirmar) return;
+        }
+
+        const btn = document.getElementById('btn_confirmar_importacao');
+        btn.disabled = true;
+        btn.innerText = "Importing...";
+
+        try {
+            const res = await fetchSeguro('/api/nuvem/importar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    nuvem_id: nuvemIdSelecionado,
+                    snapshot_id: snapshotId || null,
+                    pacote_direto: pacoteArquivoCarregado,
+                    modo: modo,
+                    evento_local_alvo_id: alvoId || null,
+                    novo_nome_evento: novoNome || null,
+                    salvar_copia_na_nuvem: salvarCopiaNuvem
+                })
+            });
+
+            if (res.sucesso) {
+                const modoExibicao = ({ SUBSTITUIR: 'REPLACE', COPIA: 'COPY', APENAS_ATLETAS: 'LIFTERS_ONLY' })[res.modo] || res.modo;
+                alert(`✅ Import completed successfully in [${modoExibicao}] mode!\nTotal registrations processed: ${res.qtd_atletas}.`);
+                fecharPainelImportacao();
+                await carregarEventosLocais();
+                await buscarCampeonatosNaNuvem();
+            }
+        } catch (e) {
+            alert("Error during import: " + e.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerText = "⬇️ Confirm Download and Import";
+        }
+    }
+</script>
+</body>
+</html>

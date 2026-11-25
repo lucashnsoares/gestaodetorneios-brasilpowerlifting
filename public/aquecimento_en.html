@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Warm-up Room - Lifting Order</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #111; color: #fff; margin: 0; padding: 20px; }
+        
+        .cabecalho-tv { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #f39c12; padding-bottom: 10px; margin-bottom: 20px; flex-wrap: wrap; gap: 15px; }
+        .cabecalho-tv h1 { margin: 0; font-size: 36px; color: #f39c12; text-transform: uppercase; }
+        .cabecalho-tv .info-bateria { font-size: 24px; color: #bdc3c7; }
+        .seletor-plat { background: #222; color: #f39c12; border: 1px solid #f39c12; padding: 8px 14px; border-radius: 5px; font-size: 16px; font-weight: bold; cursor: pointer; }
+        
+        /* ESTILOS DA FILA ATIVA (Letras Grandes) */
+        .tabela-focada { width: 100%; border-collapse: collapse; font-size: 24px; }
+        .tabela-focada th { background: #222; color: #888; padding: 15px; text-align: left; border-bottom: 2px solid #444; text-transform: uppercase; font-size: 18px; }
+        .tabela-focada td { padding: 15px; border-bottom: 1px solid #333; vertical-align: middle; }
+        .tabela-focada tr { transition: background 0.3s; }
+        .peso-barra { font-size: 32px; font-weight: bold; color: #fff; text-align: right; }
+        .tentativa { background: #333; padding: 5px 12px; border-radius: 4px; font-size: 18px; color: #aaa; }
+        
+        .na-plataforma { background: #27ae60 !important; color: white; }
+        .na-plataforma td { border-bottom: none; }
+        .na-plataforma .peso-barra { color: #fff; }
+        .na-plataforma .tentativa { background: #2ecc71; color: #000; font-weight: bold; }
+        .proximo { background: #2c3e50; }
+        .proximo td { border-left: 5px solid #3498db; }
+
+        /* ESTILOS DA VISÃO GERAL (Grade de Baterias) */
+        .visao-geral-container { display: flex; flex-wrap: wrap; gap: 20px; }
+        .bloco-movimento { background: #1a1a1a; padding: 15px; border-radius: 8px; flex: 1; min-width: 320px; border: 1px solid #333; }
+        .bloco-movimento h2 { color: #f39c12; margin-top: 0; text-transform: uppercase; border-bottom: 2px solid #f39c12; padding-bottom: 5px; font-size: 22px; }
+        .bloco-bateria { margin-top: 15px; background: #222; border-radius: 6px; padding: 10px; border-left: 4px solid #3498db; }
+        .bloco-bateria h3 { margin: 0 0 10px 0; color: #3498db; font-size: 18px; display: flex; justify-content: space-between; }
+        .tabela-resumo { width: 100%; font-size: 15px; border-collapse: collapse; }
+        .tabela-resumo th, .tabela-resumo td { padding: 6px; border-bottom: 1px solid #333; text-align: left; }
+        .tabela-resumo th { color: #888; font-weight: normal; }
+        
+        .msg-vazio { text-align: center; padding: 50px; font-size: 30px; color: #555; }
+    </style>
+</head>
+<body>
+
+    <div class="cabecalho-tv">
+        <div>
+            <h1 id="titulo_movimento">Waiting to Start</h1>
+            <div class="info-bateria" id="titulo_bateria">Syncing with Scorer's Table...</div>
+        </div>
+        <div>
+            <select id="select_plataforma_aq" class="seletor-plat" onchange="trocarPlataformaAquecimento()">
+                <option value="1">🎯 Platform 1</option>
+                <option value="2">🎯 Platform 2</option>
+                <option value="3">🎯 Platform 3</option>
+                <option value="4">🎯 Platform 4</option>
+                <option value="5">🎯 Platform 5</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- MODO 1: VISÃO GERAL (Exibido quando não há rodada ativa) -->
+    <div id="painel_visao_geral" class="visao-geral-container" style="display: none;"></div>
+
+    <!-- MODO 2: FILA ATIVA FOCADA (Exibido quando a mesa seleciona uma rodada) -->
+    <table id="painel_fila_ativa" class="tabela-focada" style="display: none;">
+        <thead>
+            <tr>
+                <th width="10%">Order</th>
+                <th width="45%">Lifter</th>
+                <th width="15%" style="text-align: center;">Attempt</th>
+                <th width="20%" style="text-align: right;">Weight (kg)</th>
+            </tr>
+        </thead>
+        <tbody id="corpo_fila"></tbody>
+    </table>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+    const socket = io({ reconnection: true, reconnectionDelay: 1000, reconnectionAttempts: Infinity });
+    const urlParams = new URLSearchParams(window.location.search);
+    let plataformaAq = parseInt(urlParams.get('plataforma') || localStorage.getItem('powerlifting_plataforma_aq') || '1', 10) || 1;
+    if (plataformaAq < 1 || plataformaAq > 5) plataformaAq = 1;
+
+    let estadoGlobal = {};
+    let carregandoTela = false;
+    let renderizacaoPendente = false;
+
+    window.onerror = function(msg, url, lineNo) {
+        console.error("🛡️ [AIRBAG AQUECIMENTO]:", msg, "Linha:", lineNo);
+        return false;
+    };
+
+    function escapeHtml(texto) {
+        if (texto === undefined || texto === null) return '';
+        return String(texto)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function traduzirMovimento(mov) {
+        if (!mov) return '';
+        const mapa = {
+            'agachamento': 'Squat',
+            'supino': 'Bench Press',
+            'levantamento terra': 'Deadlift',
+            'terra': 'Deadlift'
+        };
+        const chave = String(mov).trim().toLowerCase();
+        return mapa[chave] || mov;
+    }
+
+    function traduzirBateria(bat) {
+        if (!bat) return '';
+        return String(bat)
+            .replace(/\bBateria\b/gi, 'Flight')
+            .replace(/\bGrupo\b/gi, 'Group')
+            .replace(/\bRodada\b/gi, 'Round')
+            .replace(/\bMasculino\b/gi, "Men's")
+            .replace(/\bFeminino\b/gi, "Women's");
+    }
+
+    function formatarOrdinal(n) {
+        const num = parseInt(n, 10) || 1;
+        const s = ['th', 'st', 'nd', 'rd'];
+        const v = num % 100;
+        return num + (s[(v - 20) % 10] || s[v] || s[0]);
+    }
+
+    async function fetchSeguro(url, timeoutMs = 7000) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            const res = await fetch(url, { signal: controller.signal });
+            clearTimeout(timer);
+            if (!res.ok) return null;
+            return await res.json();
+        } catch (e) {
+            clearTimeout(timer);
+            console.error("Aviso de rede no Aquecimento:", e.message);
+            return null;
+        }
+    }
+
+    window.onload = function() {
+        document.getElementById('select_plataforma_aq').value = String(plataformaAq);
+        socket.emit('solicitar_estado_plataforma', plataformaAq);
+    };
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            socket.emit('solicitar_estado_plataforma', plataformaAq);
+        }
+    });
+
+    socket.on('connect', () => {
+        socket.emit('solicitar_estado_plataforma', plataformaAq);
+    });
+
+    function trocarPlataformaAquecimento() {
+        plataformaAq = parseInt(document.getElementById('select_plataforma_aq').value, 10) || 1;
+        localStorage.setItem('powerlifting_plataforma_aq', String(plataformaAq));
+        socket.emit('solicitar_estado_plataforma', plataformaAq);
+    }
+
+    socket.on('sincronizar_estado', (estado) => {
+        if (!estado) return;
+        const platEstado = parseInt(estado.plataforma || 1, 10);
+        if (platEstado !== plataformaAq) return;
+        estadoGlobal = estado;
+        renderizarTela();
+    });
+
+    socket.on('fila_atualizada', () => {
+        if (estadoGlobal.evento_id) renderizarTela();
+    });
+
+    socket.on('dados_atletas_atualizados', () => {
+        if (estadoGlobal.evento_id) renderizarTela();
+    });
+
+    async function renderizarTela() {
+        if (carregandoTela) {
+            renderizacaoPendente = true;
+            return;
+        }
+        carregandoTela = true;
+        try {
+            if (!estadoGlobal.evento_id) {
+                document.getElementById('titulo_movimento').innerText = `POWERLIFTING (PLATFORM ${plataformaAq})`;
+                document.getElementById('titulo_bateria').innerText = "Waiting for Scorer's Table setup...";
+                document.getElementById('painel_visao_geral').style.display = 'none';
+                document.getElementById('painel_fila_ativa').style.display = 'none';
+                return;
+            }
+
+            if (!estadoGlobal.bateria) {
+                document.getElementById('titulo_movimento').innerText = "EVENT OVERVIEW";
+                document.getElementById('titulo_bateria').innerText = "Pending Flights and Groups";
+                document.getElementById('painel_fila_ativa').style.display = 'none';
+                await carregarVisaoGeral();
+                document.getElementById('painel_visao_geral').style.display = 'flex';
+            } else {
+                document.getElementById('titulo_movimento').innerText = `${traduzirMovimento(estadoGlobal.movimento || '')} (Platform ${plataformaAq})`;
+                document.getElementById('titulo_bateria').innerText = traduzirBateria(estadoGlobal.bateria);
+                document.getElementById('painel_visao_geral').style.display = 'none';
+                await carregarFilaAtiva();
+                document.getElementById('painel_fila_ativa').style.display = 'table';
+            }
+        } catch (erro) {
+            console.error("Erro ao renderizar tela de aquecimento:", erro);
+        } finally {
+            carregandoTela = false;
+            if (renderizacaoPendente) {
+                renderizacaoPendente = false;
+                renderizarTela();
+            }
+        }
+    }
+
+    async function carregarVisaoGeral() {
+        const dados = await fetchSeguro(`/api/painel_geral/${estadoGlobal.evento_id}`);
+        if (dados === null) return;
+
+        const container = document.getElementById('painel_visao_geral');
+        container.innerHTML = '';
+
+        if (!Array.isArray(dados) || dados.length === 0) {
+            container.innerHTML = '<div class="msg-vazio" style="width: 100%;">All flights have been completed!</div>';
+            return;
+        }
+
+        const agrupado = {};
+        dados.forEach(d => {
+            if (!d || !d.bateria) return;
+            if (!agrupado[d.movimento]) agrupado[d.movimento] = {};
+            const chaveBat = `${traduzirBateria(d.bateria)} (Plat. ${d.plataforma || 1})`;
+            if (!agrupado[d.movimento][chaveBat]) agrupado[d.movimento][chaveBat] = [];
+            agrupado[d.movimento][chaveBat].push(d);
+        });
+
+        for (const mov in agrupado) {
+            let htmlMovimento = `<div class="bloco-movimento"><h2>${escapeHtml(traduzirMovimento(mov))}</h2>`;
+            for (const bat in agrupado[mov]) {
+                htmlMovimento += `<div class="bloco-bateria"><h3><span>${escapeHtml(bat)}</span></h3><table class="tabela-resumo">
+                    <tr><th>Lifter</th><th>Class</th><th>Att.</th><th>Weight</th></tr>`;
+                
+                agrupado[mov][bat].forEach(atl => {
+                    try {
+                        const cargaTxt = (!atl.peso_solicitado || Number(atl.peso_solicitado) <= 0) ? 'TBD' : `${atl.peso_solicitado}kg`;
+                        htmlMovimento += `<tr>
+                            <td><strong>${escapeHtml(atl.nome || 'Lifter')}</strong></td>
+                            <td>${escapeHtml(atl.categoria_peso_escolhida)}kg</td>
+                            <td>${formatarOrdinal(atl.numero_tentativa || 1)}</td>
+                            <td>${escapeHtml(cargaTxt)}</td>
+                        </tr>`;
+                    } catch (errVg) {
+                        console.error("Erro isolado na visão geral do aquecimento:", errVg, atl);
+                    }
+                });
+                htmlMovimento += `</table></div>`;
+            }
+            htmlMovimento += `</div>`;
+            container.innerHTML += htmlMovimento;
+        }
+    }
+
+async function carregarFilaAtiva() {
+    const queryParams = `bateria=${encodeURIComponent(estadoGlobal.bateria)}&plataforma=${plataformaAq}`;
+    const [fila, aguardando] = await Promise.all([
+        fetchSeguro(`/api/bateria/${estadoGlobal.evento_id}/${estadoGlobal.movimento}?${queryParams}`),
+        fetchSeguro(`/api/aguardando_pedida/${estadoGlobal.evento_id}/${estadoGlobal.movimento}?${queryParams}`)
+    ]);
+    if (fila === null) return;
+
+    const tbody = document.getElementById('corpo_fila');
+    tbody.innerHTML = '';
+
+    if (!Array.isArray(fila) || fila.length === 0) {
+        if (Array.isArray(aguardando) && aguardando.length > 0) {
+            const nomesPend = aguardando.map(a => `${escapeHtml(a.nome)} (${formatarOrdinal(a.numero_tentativa)} att.)`).join(' • ');
+            tbody.innerHTML = `<tr><td colspan="4" class="msg-vazio" style="color:#f39c12; font-size:24px;">⏳ Waiting for next attempt selection at the Scorer's Table:<br><small style="color:#bdc3c7;">${nomesPend}</small></td></tr>`;
+        } else {
+            tbody.innerHTML = '<tr><td colspan="4" class="msg-vazio">Round Finished.</td></tr>';
+        }
+        return;
+    }
+
+        const atletaAtivoId = estadoGlobal.atletaAtual ? (estadoGlobal.atletaAtual.tentativa_id || estadoGlobal.atletaAtual.id) : null;
+
+        fila.forEach((atl, index) => {
+            try {
+                const isNaPlataforma = (atletaAtivoId == atl.tentativa_id);
+                const isProximo = (index === 0 && !isNaPlataforma) || (index === 1 && atletaAtivoId == fila[0].tentativa_id);
+                
+                let classeLinha = isNaPlataforma ? 'na-plataforma' : (isProximo ? 'proximo' : '');
+                let statusOrdem = isNaPlataforma ? '▶ NOW' : `${formatarOrdinal(index + 1)}`;
+                const cargaTxt = (!atl.peso_solicitado || Number(atl.peso_solicitado) <= 0) ? 'TBD' : `${atl.peso_solicitado} kg`;
+
+                tbody.innerHTML += `
+                    <tr class="${classeLinha}">
+                        <td style="font-weight: bold; color: ${isNaPlataforma ? '#fff' : '#888'};">${statusOrdem}</td>
+                        <td>
+                            <div style="font-weight: bold;">${escapeHtml(atl.nome || 'Lifter')}</div>
+                            <div style="font-size: 16px; color: ${isNaPlataforma ? '#eee' : '#888'};">Bodyweight: ${escapeHtml(atl.peso_corporal_oficial || '--')}kg</div>
+                        </td>
+                        <td style="text-align: center;"><span class="tentativa">${formatarOrdinal(atl.numero_tentativa || 1)}</span></td>
+                        <td class="peso-barra">${escapeHtml(cargaTxt)}</td>
+                    </tr>
+                `;
+            } catch (errFila) {
+                console.error("Erro isolado na fila ativa do aquecimento:", errFila, atl);
+            }
+        });
+    }
+
+    setInterval(() => {
+        if (estadoGlobal.evento_id) renderizarTela();
+    }, 10000);
+</script>
+</body>
+</html>

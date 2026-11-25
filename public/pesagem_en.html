@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Official Weigh-in</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #eef2f3; margin: 0; }
+        .container { max-width: 820px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .painel-topo { background: #ecf0f1; padding: 15px; border-radius: 5px; margin-bottom: 25px; border-left: 5px solid #e67e22; }
+        .painel-topo select, .painel-topo input { font-size: 16px; padding: 10px; width: 100%; border: 1px solid #bdc3c7; border-radius: 4px; background: white; font-weight: bold; box-sizing: border-box; margin-top: 5px; }
+        
+        h1, h2 { color: #2c3e50; border-bottom: 2px solid #e67e22; padding-bottom: 10px; }
+        .linha { display: flex; gap: 15px; margin-top: 15px; flex-wrap: wrap; }
+        .linha > div { flex: 1; min-width: 200px; }
+        label { font-weight: bold; font-size: 14px; display: block; margin-bottom: 5px; color: #555; }
+        input[type="number"], input[type="text"], select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; background: #fdfdfd; font-size: 16px; }
+        input[readonly] { background: #ecf0f1; color: #7f8c8d; cursor: not-allowed; }
+        
+        .box-info { background: #fff3cd; color: #856404; padding: 12px; border-radius: 4px; border: 1px solid #ffeeba; margin-bottom: 20px; font-weight: bold; line-height: 1.5; }
+        .aviso-sincronia { display: none; background: #fadbd8; color: #78281f; border: 2px solid #e74c3c; padding: 12px; border-radius: 6px; margin-bottom: 15px; font-weight: bold; }
+        
+        /* Alerta não-bloqueante de peso fora da categoria ao lado do campo */
+        .wrapper-peso-balanca { position: relative; display: flex; align-items: center; gap: 8px; }
+        .icone-alerta-peso { display: none; background: #fff3cd; color: #b7950b; border: 2px solid #f39c12; border-radius: 6px; padding: 7px 10px; font-size: 13px; font-weight: bold; white-space: nowrap; align-items: center; gap: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.08); }
+        .icone-alerta-peso.acima { background: #fadbd8; color: #922b21; border-color: #e74c3c; }
+        .btn-sugerir-cat { background: #e67e22; color: white; border: none; border-radius: 4px; padding: 4px 8px; font-size: 12px; font-weight: bold; cursor: pointer; }
+        .btn-sugerir-cat:hover { background: #d35400; }
+
+        .bloco-movimento { border: 1px solid #ddd; padding: 15px; border-radius: 5px; margin-top: 15px; background: #fafafa; }
+        .bloco-movimento h3 { margin-top: 0; color: #34495e; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+        .badge-pedida-concluida { display: none; background: #27ae60; color: #fff; font-size: 12px; padding: 3px 8px; border-radius: 4px; font-weight: bold; }
+        
+        .btn-salvar { background: #e67e22; color: white; font-size: 18px; padding: 15px; width: 100%; border: none; border-radius: 5px; cursor: pointer; margin-top: 30px; font-weight: bold; }
+        .btn-salvar:hover { background: #d35400; }
+        .btn-salvar:disabled { background: #95a5a6; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+<!-- Barra de Navegação Global -->
+<nav style="background: #2c3e50; padding: 15px; margin-bottom: 20px; display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+    <a href="/" style="color: white; text-decoration: none; font-weight: bold;">🏠 Home</a>
+    <a href="/criar-evento" style="color: #bdc3c7; text-decoration: none;">1. Meet</a>
+    <a href="/inscricao" style="color: #bdc3c7; text-decoration: none;">2. Registration</a>
+    <a href="/baterias" style="color: #bdc3c7; text-decoration: none;">3. Flights</a>
+    <a href="/pesagem" style="color: #3498db; text-decoration: none; font-weight: bold;">4. Weigh-in</a>
+    <a href="/admin" style="color: #bdc3c7; text-decoration: none;">5. Scorer's Table</a>
+    <a href="/display" style="color: #2ecc71; text-decoration: none;">6. Scoreboard</a>
+    <a href="/resultados" style="color: #f1c40f; text-decoration: none;">7. Results 🏆</a>
+    <a href="/nuvem" style="color: #1abc9c; text-decoration: none; font-weight: bold;">☁️ Cloud</a>
+</nav>
+
+<div class="container">
+    <!-- Tela de Bloqueio por Senha Global (exibida apenas quando ativada no Painel Inicial) -->
+    <div id="painel_senha_pesagem" style="display: none; max-width: 420px; margin: 20px auto; text-align: center; padding: 25px; background: #fdfefe; border: 1px solid #e67e22; border-top: 5px solid #e67e22; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.08);">
+        <h2 style="margin-top: 0; border-bottom: none; padding-bottom: 0; color: #d35400;">🔐 Restricted Access — Weight-ins</h2>
+        <p style="font-size: 14px; color: #555; margin-bottom: 18px;">Type the Password:</p>
+        <input type="password" id="input_senha_login_pesagem" placeholder="Senha / PIN" onkeypress="if(event.key==='Enter') autenticarPesagem()" style="text-align: center; font-size: 20px; padding: 12px; border: 2px solid #e67e22; margin-bottom: 12px;">
+        <button type="button" onclick="autenticarPesagem()" class="btn-salvar" style="margin-top: 0; padding: 13px;">Open Weight-ins</button>
+        <div id="erro_senha_pesagem" style="display: none; color: #c0392b; font-size: 14px; font-weight: bold; margin-top: 12px;"></div>
+    </div>
+
+    <div id="conteudo_pesagem" style="display: none;">
+    <div class="painel-topo">
+        <label style="margin-top:0;">1. Select Meet</label>
+        <select id="select_evento" onchange="carregarAtletas()">
+            <option value="">-- Loading Meets... --</option>
+        </select>
+        
+        <div id="area_busca_atleta" style="margin-top: 15px;">
+            <label>2. Search / Select Lifter for Weigh-in</label>
+            <input type="text" id="filtro_nome_atleta" placeholder="🔍 Type a name to filter quickly..." oninput="renderizarOpcoesAtletas()" disabled style="margin-bottom: 6px; font-weight: normal;">
+            <select id="select_atleta" onchange="prepararPesagem()" disabled>
+                <option value="">-- Select a Meet First --</option>
+            </select>
+        </div>
+    </div>
+
+    <div id="form_pesagem" style="display: none;">
+        <h1>Official Scale</h1>
+        
+        <div class="aviso-sincronia" id="aviso_conflito_remoto">
+            ⚠️ WARNING: Another device just updated this lifter's data! 
+            <button onclick="prepararPesagem()" style="background: #c0392b; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-left: 10px;">🔄 Reload Updated Record</button>
+        </div>
+
+        <div class="box-info" id="info_atleta"></div>
+
+        <div class="linha">
+            <div>
+                <label>Current Weight Class</label>
+                <select id="categoria_peso" onchange="verificarCompatibilidadePesoCategoria()" style="border: 2px solid #e67e22; font-size: 18px; font-weight: bold;"></select>
+            </div>
+            <div>
+                <label>Bodyweight on Scale (kg)</label>
+                <div class="wrapper-peso-balanca">
+                    <input type="number" id="peso_corporal" step="0.01" placeholder="Ex: 82.45" onwheel="this.blur()" oninput="verificarCompatibilidadePesoCategoria()" style="border: 2px solid #e67e22; font-size: 20px; font-weight: bold;">
+                    <div id="badge_alerta_peso" class="icone-alerta-peso" title="The entered weight exceeds or differs from the selected weight class, but you can still save normally.">
+                        <span id="texto_alerta_peso">⚠️</span>
+                        <button type="button" id="btn_aplicar_cat_sugerida" class="btn-sugerir-cat" style="display:none;" onclick="aplicarCategoriaSugerida()"></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <h2 style="margin-top: 30px;">Rack Heights & 1st Attempts (Openers)</h2>
+
+        <div class="bloco-movimento" id="bloco_agachamento" style="display: none;">
+            <h3>
+                <span>Squat</span>
+                <span class="badge-pedida-concluida" id="lock_pedida_agachamento">🔒 1st attempt already judged at the Table</span>
+            </h3>
+            <div class="linha">
+                <div><label>Rack Height</label><input type="text" id="rack_agachamento"></div>
+                <div><label>1st Attempt / Opener (kg)</label><input type="number" id="pedida_agachamento" step="0.5" onwheel="this.blur()"></div>
+            </div>
+        </div>
+
+        <div class="bloco-movimento" id="bloco_supino" style="display: none;">
+            <h3>
+                <span>Bench Press</span>
+                <span class="badge-pedida-concluida" id="lock_pedida_supino">🔒 1st attempt already judged at the Table</span>
+            </h3>
+            <div class="linha">
+                <div><label>Rack Height</label><input type="text" id="rack_supino"></div>
+                <div><label>Safety Height</label><input type="text" id="trava_supino"></div>
+                <div><label>1st Attempt / Opener (kg)</label><input type="number" id="pedida_supino" step="0.5" onwheel="this.blur()"></div>
+            </div>
+        </div>
+
+        <div class="bloco-movimento" id="bloco_terra" style="display: none;">
+            <h3>
+                <span>Deadlift</span>
+                <span class="badge-pedida-concluida" id="lock_pedida_terra">🔒 1st attempt already judged at the Table</span>
+            </h3>
+            <div class="linha">
+                <div><label>1st Attempt / Opener (kg)</label><input type="number" id="pedida_terra" step="0.5" onwheel="this.blur()"></div>
+            </div>
+        </div>
+
+        <button class="btn-salvar" id="btn_salvar_pesagem" onclick="salvarPesagem()">Save Weight-in and openers</button>
+    </div>
+    </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+    const socket = io({ reconnection: true });
+    let inscricoesAtuais = [];
+    let todasPedidas = [];
+    let inscricaoSelecionada = null;
+    let versaoFichaAberta = null;
+    let eventoAtual = null;
+    let categoriaSugeridaAutomatica = null;
+    let tokenCarregamentoFicha = 0;
+    let tokenAcessoPesagem = localStorage.getItem('powerlifting_token_arbitro') || '';
+    let eventosPesagemCarregados = false;
+
+    window.onerror = function(msg, url, lineNo) {
+        console.error("🛡️ [AIRBAG PESAGEM]:", msg, "Linha:", lineNo);
+        return false;
+    };
+
+    function escapeHtml(texto) {
+        if (texto === undefined || texto === null) return '';
+        return String(texto)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function obterMovimentosDaModalidade(modalidade) {
+        const mod = String(modalidade || 'Full Power').trim();
+        if (mod === 'Agachamento Solo') return ['agachamento'];
+        if (mod === 'Supino Solo') return ['supino'];
+        if (mod === 'Terra Solo') return ['terra'];
+        if (mod === 'Push-Pull') return ['supino', 'terra'];
+        return ['agachamento', 'supino', 'terra'];
+    }
+
+    function traduzirModalidadeExibicao(modalidade) {
+        const mod = String(modalidade || 'Full Power').trim();
+        const mapa = {
+            'Agachamento Solo': 'Squat Only',
+            'Supino Solo': 'Bench Only',
+            'Terra Solo': 'Deadlift Only',
+            'Full Power': 'Full Power',
+            'Push-Pull': 'Push-Pull'
+        };
+        return mapa[mod] || mod;
+    }
+
+    function traduzirEquipamentoExibicao(equip) {
+        const eq = String(equip || 'Raw').trim();
+        const mapa = {
+            'Equipado': 'Equipped',
+            'Sem Equipamento': 'Raw'
+        };
+        return mapa[eq] || eq;
+    }
+
+    function traduzirCategoriaExibicao(cat, sufixoKg = false) {
+        const c = String(cat || '').trim();
+        if (c.toLowerCase() === 'livre') return 'Open (Set at Weigh-in)';
+        return sufixoKg ? `${c}kg` : c;
+    }
+
+    function temErroDigitacaoNumerica(idCampo) {
+        const el = document.getElementById(idCampo);
+        return Boolean(el && el.validity && el.validity.badInput);
+    }
+
+    function aplicarEstadoCampoPedida(movimento, peso, estadoTentativa) {
+        const inputEl = document.getElementById(`pedida_${movimento}`);
+        const badgeEl = document.getElementById(`lock_pedida_${movimento}`);
+        if (!inputEl) return;
+
+        inputEl.value = peso > 0 ? peso : '';
+        const jaConcluida = (estadoTentativa === 'concluido');
+        inputEl.readOnly = jaConcluida;
+        if (badgeEl) {
+            badgeEl.style.display = jaConcluida ? 'inline-block' : 'none';
+        }
+    }
+
+    async function fetchSeguro(url, opcoes = {}, timeoutMs = 8000) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            const res = await fetch(url, { ...opcoes, signal: controller.signal });
+            clearTimeout(timer);
+            const dados = await res.json().catch(() => ({}));
+            return { status: res.status, ok: res.ok, dados };
+        } catch (erro) {
+            clearTimeout(timer);
+            throw erro;
+        }
+    }
+
+    socket.on('dados_atletas_atualizados', async (info) => {
+        const eventoId = document.getElementById('select_evento').value;
+        if (!eventoId || String(info?.evento_id) !== String(eventoId)) return;
+
+        await sincronizarDadosEmSegundoPlano(info.inscricao_id);
+    });
+
+    function formatarTextoDivisoes(divisaoSalva) {
+        if (!divisaoSalva) return 'Open';
+        const str = String(divisaoSalva).trim();
+        if (str.startsWith('[')) {
+            try {
+                const arr = JSON.parse(str);
+                return Array.isArray(arr) ? arr.join(' + ') : str;
+            } catch (e) {
+                return str;
+            }
+        }
+        return str;
+    }
+
+    // Analisa se o peso na balança está acima do teto da categoria selecionada (alerta visual não-bloqueante)
+function verificarCompatibilidadePesoCategoria() {
+        const badge = document.getElementById('badge_alerta_peso');
+        const txtAlerta = document.getElementById('texto_alerta_peso');
+        const btnSugerir = document.getElementById('btn_aplicar_cat_sugerida');
+        if (!badge || !inscricaoSelecionada) return;
+
+        const pesoDigitado = limparPeso(document.getElementById('peso_corporal').value);
+        const catSelecionada = String(document.getElementById('categoria_peso').value || '').trim();
+        categoriaSugeridaAutomatica = null;
+
+        if (!pesoDigitado || pesoDigitado <= 0 || !catSelecionada) {
+            badge.style.display = 'none';
+            return;
+        }
+
+        const opcoesSelect = Array.from(document.getElementById('categoria_peso').options).map(o => o.value);
+        const encontrarCategoriaIdeal = (peso) => {
+            const limites = opcoesSelect
+                .map(c => ({
+                    raw: c,
+                    isPlus: String(c).trim().startsWith('+'),
+                    num: parseFloat(String(c).replace(',', '.').replace(/[^0-9.]/g, ''))
+                }))
+                .filter(x => !isNaN(x.num) && x.num > 0);
+
+            const normais = limites.filter(x => !x.isPlus).sort((a, b) => a.num - b.num);
+            for (const item of normais) {
+                if (peso <= item.num) return item.raw;
+            }
+            const plus = limites.find(x => x.isPlus);
+            return plus ? plus.raw : null;
+        };
+
+        // Se o atleta foi inscrito como "Livre (Definir na Pesagem)", sugere imediatamente a categoria correspondente ao peso da balança
+        if (catSelecionada.toLowerCase() === 'livre') {
+            const sugerida = encontrarCategoriaIdeal(pesoDigitado);
+            if (sugerida && sugerida.toLowerCase() !== 'livre') {
+                categoriaSugeridaAutomatica = sugerida;
+                badge.className = 'icone-alerta-peso';
+                txtAlerta.innerText = `💡 Class for ${pesoDigitado}kg:`;
+                btnSugerir.innerText = `Apply ${sugerida}kg`;
+                btnSugerir.style.display = 'inline-block';
+                badge.style.display = 'inline-flex';
+            } else {
+                badge.style.display = 'none';
+            }
+            return;
+        }
+
+        const ehAcimaDe = catSelecionada.startsWith('+');
+        const limiteNum = parseFloat(catSelecionada.replace(',', '.').replace(/[^0-9.]/g, ''));
+        if (isNaN(limiteNum) || limiteNum <= 0) {
+            badge.style.display = 'none';
+            return;
+        }
+
+        if (!ehAcimaDe && pesoDigitado > limiteNum) {
+            const excesso = (pesoDigitado - limiteNum).toFixed(2);
+            const sugerida = encontrarCategoriaIdeal(pesoDigitado);
+            badge.className = 'icone-alerta-peso acima';
+            txtAlerta.innerText = `⚠️ +${excesso}kg over ${catSelecionada}kg`;
+
+            if (sugerida && sugerida !== catSelecionada) {
+                categoriaSugeridaAutomatica = sugerida;
+                btnSugerir.innerText = `Switch to ${sugerida}`;
+                btnSugerir.style.display = 'inline-block';
+            } else {
+                btnSugerir.style.display = 'none';
+            }
+            badge.style.display = 'inline-flex';
+        } else if (ehAcimaDe && pesoDigitado <= limiteNum) {
+            const sugerida = encontrarCategoriaIdeal(pesoDigitado);
+            badge.className = 'icone-alerta-peso';
+            txtAlerta.innerText = `⚠️ Weight ≤ ${limiteNum}kg (Class ${catSelecionada})`;
+            if (sugerida && sugerida !== catSelecionada) {
+                categoriaSugeridaAutomatica = sugerida;
+                btnSugerir.innerText = `Switch to ${sugerida}`;
+                btnSugerir.style.display = 'inline-block';
+            } else {
+                btnSugerir.style.display = 'none';
+            }
+            badge.style.display = 'inline-flex';
+        } else {
+            badge.style.display = 'none';
+        }
+    }
+
+    function aplicarCategoriaSugerida() {
+        if (!categoriaSugeridaAutomatica) return;
+        document.getElementById('categoria_peso').value = categoriaSugeridaAutomatica;
+        verificarCompatibilidadePesoCategoria();
+    }
+
+    async function carregarEventosPesagem() {
+        try {
+            const { ok, dados } = await fetchSeguro('/api/eventos');
+            const select = document.getElementById('select_evento');
+            select.innerHTML = '<option value="">-- Selecione o Campeonato --</option>';
+            if (ok && Array.isArray(dados)) {
+                dados.forEach(ev => {
+                    select.innerHTML += `<option value="${ev.id}">${escapeHtml(ev.nome)}</option>`;
+                });
+                eventosPesagemCarregados = true;
+            }
+        } catch (e) {
+            console.error("Erro ao carregar campeonatos:", e);
+        }
+    }
+
+    function definirBloqueioPesagem(bloquear) {
+        const painelSenha = document.getElementById('painel_senha_pesagem');
+        const conteudo = document.getElementById('conteudo_pesagem');
+        if (painelSenha) painelSenha.style.display = bloquear ? 'block' : 'none';
+        if (conteudo) conteudo.style.display = bloquear ? 'none' : 'block';
+        if (!bloquear && !eventosPesagemCarregados) {
+            carregarEventosPesagem();
+        }
+    }
+
+    async function checarAutorizacaoPesagem() {
+        try {
+            const r = await fetch('/api/arbitro/status');
+            const d = await r.json();
+            if (!d.exige_senha) {
+                definirBloqueioPesagem(false);
+                return;
+            }
+            if (tokenAcessoPesagem) {
+                const rv = await fetch('/api/arbitro/verificar_token', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: tokenAcessoPesagem })
+                });
+                const dv = await rv.json();
+                if (dv.autorizado) {
+                    definirBloqueioPesagem(false);
+                    return;
+                }
+            }
+            definirBloqueioPesagem(true);
+        } catch (e) {
+            definirBloqueioPesagem(false);
+        }
+    }
+
+    async function autenticarPesagem() {
+        const inp = document.getElementById('input_senha_login_pesagem');
+        const errEl = document.getElementById('erro_senha_pesagem');
+        const senha = inp ? inp.value.trim() : '';
+        if (!senha) return;
+
+        try {
+            const r = await fetch('/api/arbitro/autenticar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ senha })
+            });
+            const d = await r.json();
+            if (!r.ok || !d.ok) {
+                errEl.innerText = d.erro || "Wrong Password.";
+                errEl.style.display = 'block';
+                return;
+            }
+            tokenAcessoPesagem = d.token || '';
+            localStorage.setItem('powerlifting_token_arbitro', tokenAcessoPesagem);
+            errEl.style.display = 'none';
+            inp.value = '';
+            definirBloqueioPesagem(false);
+        } catch (e) {
+            errEl.innerText = "Connection Failure.";
+            errEl.style.display = 'block';
+        }
+    }
+
+    socket.on('config_senha_arbitro_alterada', () => { checarAutorizacaoPesagem(); });
+
+    window.onload = async function() {
+        await checarAutorizacaoPesagem();
+    };
+
+    async function carregarAtletas() {
+        const eventoId = document.getElementById('select_evento').value;
+        const selAtleta = document.getElementById('select_atleta');
+        const inputFiltro = document.getElementById('filtro_nome_atleta');
+        document.getElementById('form_pesagem').style.display = 'none';
+        inscricaoSelecionada = null;
+        versaoFichaAberta = null;
+
+        if (!eventoId) {
+            selAtleta.disabled = true;
+            inputFiltro.disabled = true;
+            return;
+        }
+
+        try {
+            const [resInsc, resPedidas, resEvento] = await Promise.all([
+                fetchSeguro(`/api/inscricoes/evento/${eventoId}`),
+                fetchSeguro(`/api/todas_pedidas/${eventoId}`),
+                fetchSeguro(`/api/eventos/${eventoId}`)
+            ]);
+            
+            inscricoesAtuais = Array.isArray(resInsc.dados) ? resInsc.dados : [];
+            todasPedidas = Array.isArray(resPedidas.dados) ? resPedidas.dados : [];
+            eventoAtual = resEvento.dados || {};
+            
+            inputFiltro.value = '';
+            inputFiltro.disabled = false;
+            selAtleta.disabled = false;
+
+            renderizarOpcoesAtletas();
+        } catch (erro) {
+            alert("Error loading lifter list for weigh-in.");
+        }
+    }
+
+    async function sincronizarDadosEmSegundoPlano(inscricaoModificadaId) {
+        const eventoId = document.getElementById('select_evento').value;
+        if (!eventoId) return;
+
+        const idSelecionadoAntes = document.getElementById('select_atleta').value;
+
+        try {
+            const [resInsc, resPedidas] = await Promise.all([
+                fetchSeguro(`/api/inscricoes/evento/${eventoId}`),
+                fetchSeguro(`/api/todas_pedidas/${eventoId}`)
+            ]);
+
+            if (Array.isArray(resInsc.dados)) inscricoesAtuais = resInsc.dados;
+            if (Array.isArray(resPedidas.dados)) todasPedidas = resPedidas.dados;
+
+            renderizarOpcoesAtletas(idSelecionadoAntes);
+
+            if (inscricaoSelecionada && String(inscricaoSelecionada.id) === String(inscricaoModificadaId)) {
+                const novoRegistro = inscricoesAtuais.find(i => String(i.id) === String(inscricaoSelecionada.id));
+                if (novoRegistro && Number(novoRegistro.versao) !== Number(versaoFichaAberta)) {
+                    document.getElementById('aviso_conflito_remoto').style.display = 'block';
+                }
+            }
+        } catch (e) {
+            console.error("Erro ao sincronizar pesagem em segundo plano:", e);
+        }
+    }
+
+    function renderizarOpcoesAtletas(idManterSelecionado = null) {
+        const selAtleta = document.getElementById('select_atleta');
+        const termoFiltro = (document.getElementById('filtro_nome_atleta').value || '').trim().toLowerCase();
+        const valorAtual = idManterSelecionado !== null ? idManterSelecionado : selAtleta.value;
+
+        selAtleta.innerHTML = '<option value="">-- Choose a Lifter --</option>';
+        
+        inscricoesAtuais.forEach(insc => {
+            try {
+                if (termoFiltro && !(insc.nome || '').toLowerCase().includes(termoFiltro)) {
+                    if (String(insc.id) !== String(valorAtual)) return;
+                }
+
+                const pedsAtleta = todasPedidas.filter(p => Number(p.inscricao_id) === Number(insc.id));
+                const pedAgachamento = pedsAtleta.find(p => p.movimento === 'agachamento')?.peso_solicitado || 0;
+                const pedSupino = pedsAtleta.find(p => p.movimento === 'supino')?.peso_solicitado || 0;
+                const pedTerra = pedsAtleta.find(p => p.movimento === 'terra')?.peso_solicitado || 0;
+
+                let pendente = false;
+                let temAlgumDado = insc.peso_corporal_oficial || insc.rack_agachamento || insc.rack_supino || pedAgachamento > 0 || pedSupino > 0 || pedTerra > 0;
+                
+                if (!insc.peso_corporal_oficial) pendente = true;
+                
+                const movsAtivos = obterMovimentosDaModalidade(insc.modalidade_escolhida);
+                
+                if (movsAtivos.includes('agachamento')) {
+                    if (insc.rack_agachamento === null || insc.rack_agachamento === '') pendente = true;
+                    if (pedAgachamento <= 0) pendente = true;
+                }
+                if (movsAtivos.includes('supino')) {
+                    if (insc.rack_supino === null || insc.rack_supino === '' || insc.trava_supino === null || insc.trava_supino === '') pendente = true;
+                    if (pedSupino <= 0) pendente = true;
+                }
+                if (movsAtivos.includes('terra')) {
+                    if (pedTerra <= 0) pendente = true;
+                }
+                
+                let statusTexto = '✅ READY -';
+                if (pendente) {
+                    statusTexto = temAlgumDado ? '⚠️ INCOMPLETE -' : '⏳ WAITING -';
+                }
+
+                const equip = traduzirEquipamentoExibicao(insc.equipamento_escolhido);
+                const modExibicao = traduzirModalidadeExibicao(insc.modalidade_escolhida);
+                selAtleta.innerHTML += `<option value="${insc.id}">${statusTexto} ${escapeHtml(insc.nome || 'Lifter')} (${escapeHtml(modExibicao)} - ${escapeHtml(equip)})</option>`;
+            } catch (errOpt) {
+                console.error("Erro isolado ao renderizar atleta na pesagem:", errOpt, insc);
+            }
+        });
+
+        if (valorAtual && Array.from(selAtleta.options).some(o => String(o.value) === String(valorAtual))) {
+            selAtleta.value = valorAtual;
+        }
+    }
+
+    async function prepararPesagem() {
+        const inscricaoId = document.getElementById('select_atleta').value;
+        const form = document.getElementById('form_pesagem');
+        document.getElementById('aviso_conflito_remoto').style.display = 'none';
+        
+        if (!inscricaoId) {
+            form.style.display = 'none';
+            inscricaoSelecionada = null;
+            versaoFichaAberta = null;
+            return;
+        }
+
+        inscricaoSelecionada = inscricoesAtuais.find(i => String(i.id) === String(inscricaoId));
+        if (!inscricaoSelecionada) return;
+
+        const meuToken = ++tokenCarregamentoFicha;
+        versaoFichaAberta = inscricaoSelecionada.versao || 1;
+        const equip = traduzirEquipamentoExibicao(inscricaoSelecionada.equipamento_escolhido);
+        const modExibicao = traduzirModalidadeExibicao(inscricaoSelecionada.modalidade_escolhida);
+        const catAlvoExibicao = traduzirCategoriaExibicao(inscricaoSelecionada.categoria_peso_escolhida, true);
+        const divs = formatarTextoDivisoes(inscricaoSelecionada.divisao_escolhida);
+        
+        document.getElementById('info_atleta').innerText = 
+            `Lifter: ${inscricaoSelecionada.nome} | Event: ${modExibicao} (${equip}) | Division: ${divs} | Target Class: ${catAlvoExibicao}`;
+
+        let categoriasOficiais = inscricaoSelecionada.sexo === 'M' 
+            ? (eventoAtual?.categorias_peso_masculino || [])
+            : (eventoAtual?.categorias_peso_feminino || []);
+        
+        const categoriasUnicas = [...new Set([...categoriasOficiais, inscricaoSelecionada.categoria_peso_escolhida])];
+
+        const selectCat = document.getElementById('categoria_peso');
+        selectCat.innerHTML = '';
+        categoriasUnicas.forEach(c => {
+            selectCat.innerHTML += `<option value="${escapeHtml(c)}">${escapeHtml(traduzirCategoriaExibicao(c, false))}</option>`;
+        });
+        selectCat.value = inscricaoSelecionada.categoria_peso_escolhida;
+        
+        const movsAtivos = obterMovimentosDaModalidade(inscricaoSelecionada.modalidade_escolhida);
+        document.getElementById('bloco_agachamento').style.display = movsAtivos.includes('agachamento') ? 'block' : 'none';
+        document.getElementById('bloco_supino').style.display = movsAtivos.includes('supino') ? 'block' : 'none';
+        document.getElementById('bloco_terra').style.display = movsAtivos.includes('terra') ? 'block' : 'none';
+
+        document.getElementById('peso_corporal').value = inscricaoSelecionada.peso_corporal_oficial || '';
+        document.getElementById('rack_agachamento').value = inscricaoSelecionada.rack_agachamento || '';
+        document.getElementById('rack_supino').value = inscricaoSelecionada.rack_supino || '';
+        document.getElementById('trava_supino').value = inscricaoSelecionada.trava_supino || '';
+        
+        // 1. PRÉ-PREENCHIMENTO IMEDIATO EM MEMÓRIA (Evita que uma oscilação de rede zere as 1ªs pedidas já salvas!)
+        const pedsEmMemoria = todasPedidas.filter(p => Number(p.inscricao_id) === Number(inscricaoId));
+        const regAgacho = pedsEmMemoria.find(p => p.movimento === 'agachamento');
+        const regSupino = pedsEmMemoria.find(p => p.movimento === 'supino');
+        const regTerra = pedsEmMemoria.find(p => p.movimento === 'terra');
+
+        aplicarEstadoCampoPedida('agachamento', regAgacho?.peso_solicitado || 0, regAgacho?.estado);
+        aplicarEstadoCampoPedida('supino', regSupino?.peso_solicitado || 0, regSupino?.estado);
+        aplicarEstadoCampoPedida('terra', regTerra?.peso_solicitado || 0, regTerra?.estado);
+
+        verificarCompatibilidadePesoCategoria();
+        form.style.display = 'block';
+
+        // 2. Sincroniza os valores mais recentes diretamente do banco de dados
+        const btnSalvar = document.getElementById('btn_salvar_pesagem');
+        btnSalvar.disabled = true;
+        try {
+            const { ok, dados: pedidasIniciais } = await fetchSeguro(`/api/pedidas/${inscricaoId}`);
+            if (meuToken !== tokenCarregamentoFicha) return;
+
+            if (ok && Array.isArray(pedidasIniciais)) {
+                pedidasIniciais.forEach(p => {
+                    if (['agachamento', 'supino', 'terra'].includes(p.movimento)) {
+                        aplicarEstadoCampoPedida(p.movimento, p.peso_solicitado || 0, p.estado);
+                    }
+                });
+            }
+        } catch (erro) {
+            console.error("Aviso: usando pedidas em memória devido a oscilação de rede:", erro);
+        } finally {
+            if (meuToken === tokenCarregamentoFicha) {
+                btnSalvar.disabled = false;
+            }
+        }
+    }
+
+    async function salvarPesagem() {
+        if (!inscricaoSelecionada) return;
+
+        if (temErroDigitacaoNumerica('peso_corporal')) {
+            alert("⚠️ The Bodyweight on Scale field contains an invalid number format (e.g., multiple dots or commas). Please fix it before saving.");
+            document.getElementById('peso_corporal').focus();
+            return;
+        }
+
+        const pesoRaw = document.getElementById('peso_corporal').value;
+        const pesoLimpo = limparPeso(pesoRaw);
+
+        if (!pesoLimpo || pesoLimpo <= 0) {
+            alert("The exact bodyweight on the scale is required!");
+            return; 
+        }
+
+        // Proteção não-bloqueante contra erro de digitação de ponto/vírgula no peso corporal (ex: 825 em vez de 82.5)
+        if (pesoLimpo > 250 || pesoLimpo < 25) {
+            const sugerido = pesoLimpo > 250 ? ` (e.g., ${(pesoLimpo / 10).toFixed(1)} kg)` : '';
+            const confirmarPesoCorp = confirm(
+                `⚠️ BODYWEIGHT WARNING: ${pesoLimpo} kg!\n\n` +
+                `Please check for a typo in the scale weight${sugerido}.\n\n` +
+                `Do you confirm that the lifter weighs exactly ${pesoLimpo} kg?`
+            );
+            if (!confirmarPesoCorp) return;
+        }
+
+        const movsAtivos = obterMovimentosDaModalidade(inscricaoSelecionada.modalidade_escolhida);
+        const fazAgachamento = movsAtivos.includes('agachamento');
+        const fazSupino = movsAtivos.includes('supino');
+        const fazTerra = movsAtivos.includes('terra');
+
+        if ((fazAgachamento && temErroDigitacaoNumerica('pedida_agachamento')) ||
+            (fazSupino && temErroDigitacaoNumerica('pedida_supino')) ||
+            (fazTerra && temErroDigitacaoNumerica('pedida_terra'))) {
+            alert("⚠️ One of the 1st attempts contains an invalid number format (e.g., multiple commas or dots in a row). Please review the 1st attempt fields.");
+            return;
+        }
+
+        const pedidaAgachamento = limparPeso(document.getElementById('pedida_agachamento').value);
+        const pedidaSupino = limparPeso(document.getElementById('pedida_supino').value);
+        const pedidaTerra = limparPeso(document.getElementById('pedida_terra').value);
+
+        // Proteção não-bloqueante contra erro de digitação nas 1ªs pedidas (> 500kg)
+        const pedidasAltas = [];
+        if (fazAgachamento && pedidaAgachamento > 500) pedidasAltas.push(`Squat: ${pedidaAgachamento}kg`);
+        if (fazSupino && pedidaSupino > 500) pedidasAltas.push(`Bench Press: ${pedidaSupino}kg`);
+        if (fazTerra && pedidaTerra > 500) pedidasAltas.push(`Deadlift: ${pedidaTerra}kg`);
+
+        if (pedidasAltas.length > 0) {
+            const confirmarPedidaAlta = confirm(
+                `⚠️ LOAD OVER 500 KG DETECTED ON 1ST ATTEMPT:\n\n` +
+                `👉 ${pedidasAltas.join(' | ')}\n\n` +
+                `Please check if a decimal point was missed (e.g., 142.5 instead of 1425).\n` +
+                `Do you want to save this value anyway?`
+            );
+            if (!confirmarPedidaAlta) return;
+        }
+
+        const faltandoPedida = [];
+        if (fazAgachamento && pedidaAgachamento <= 0) faltandoPedida.push("Squat");
+        if (fazSupino && pedidaSupino <= 0) faltandoPedida.push("Bench Press");
+        if (fazTerra && pedidaTerra <= 0) faltandoPedida.push("Deadlift");
+
+        if (faltandoPedida.length > 0) {
+            const confirmarZero = confirm(`⚠️ Warning: The 1st attempt for [${faltandoPedida.join(', ')}] is empty (0kg).\n\nDo you want to save the weigh-in anyway and fill in the opener later?`);
+            if (!confirmarZero) return;
+        }
+
+        const payload = {
+            versao: versaoFichaAberta,
+            categoria_peso_escolhida: document.getElementById('categoria_peso').value,
+            peso_corporal: pesoLimpo, 
+            rack_agachamento: document.getElementById('rack_agachamento').value.trim(),
+            rack_supino: document.getElementById('rack_supino').value.trim(),
+            trava_supino: document.getElementById('trava_supino').value.trim(),
+            pedida_agachamento: fazAgachamento ? pedidaAgachamento : null,
+            pedida_supino: fazSupino ? pedidaSupino : null,
+            pedida_terra: fazTerra ? pedidaTerra : null
+        };
+
+        const btn = document.getElementById('btn_salvar_pesagem');
+        btn.disabled = true;
+        btn.innerText = "Saving...";
+
+        try {
+            const { status, ok, dados: retorno } = await fetchSeguro(`/api/pesagem/${inscricaoSelecionada.id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Auth-Token': tokenAcessoPesagem
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (status === 401) {
+                tokenAcessoPesagem = '';
+                localStorage.removeItem('powerlifting_token_arbitro');
+                definirBloqueioPesagem(true);
+                alert(retorno.erro || "🔒 Wrong Password.");
+                return;
+            }
+
+            if (status === 409 && retorno.conflito) {
+                alert(retorno.erro);
+                await sincronizarDadosEmSegundoPlano(inscricaoSelecionada.id);
+                await prepararPesagem();
+                return;
+            }
+            
+            if (ok && retorno.sucesso) {
+                const msgExtra = retorno.aviso_realocacao ? `\n\n📌 ${retorno.aviso_realocacao}` : '';
+                alert(`Weigh-in data saved successfully!${msgExtra}`);
+                await carregarAtletas(); 
+                document.getElementById('form_pesagem').style.display = 'none';
+                document.getElementById('select_atleta').value = "";
+            } else {
+                alert("Error: " + (retorno.erro || "Failed to save weigh-in."));
+            }
+        } catch (e) {
+            alert("Server communication error. Please check your Wi-Fi connection and try again.");
+        } finally {
+            btn.disabled = false;
+            btn.innerText = "Save Weight & Openers";
+        }
+    }
+
+    function limparPeso(valorDigitado) {
+        if (!valorDigitado) return 0; 
+        let textoLimpo = String(valorDigitado).replace(',', '.').replace(/[^0-9.]/g, '');
+        let numero = parseFloat(textoLimpo);
+        return isNaN(numero) || numero < 0 ? 0 : Math.round(numero * 100) / 100; 
+    }
+</script>
+
+</body>
+</html>

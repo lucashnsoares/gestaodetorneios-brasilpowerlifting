@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Referee Panel</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #111; color: #fff; margin: 0; padding: 20px; text-align: center; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+        .status-rede { padding: 6px 12px; border-radius: 5px; font-size: 13px; font-weight: bold; margin-bottom: 12px; display: inline-block; }
+        .status-rede.online { background: #196f3d; color: #d4efdf; }
+        .status-rede.offline { background: #c0392b; color: #fff; }
+        .cabecalho { background: #222; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #333; display: flex; flex-direction: column; gap: 12px; }
+        select { padding: 12px; font-size: 18px; width: 100%; border-radius: 5px; background: #333; color: white; border: 1px solid #555; font-weight: bold; }
+        .atleta-info { font-size: 24px; color: #f39c12; font-weight: bold; margin: 25px 0; text-transform: uppercase; word-break: break-word; }
+        .botoes-voto { display: flex; gap: 20px; justify-content: center; margin-bottom: 25px; }
+        .btn-voto { flex: 1; height: 150px; font-size: 24px; font-weight: bold; border-radius: 10px; cursor: pointer; border: 4px solid transparent; opacity: 0.5; transition: 0.2s; }
+        .btn-branca { background: #fff; color: #000; }
+        .btn-vermelha { background: #e74c3c; color: #fff; }
+        .btn-voto.ativo { opacity: 1; border-color: #3498db; transform: scale(1.04); box-shadow: 0 0 20px rgba(52, 152, 219, 0.5); }
+        .btn-confirmar { background: #2ecc71; color: white; width: 100%; padding: 20px; font-size: 24px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; }
+        .btn-confirmar:disabled { background: #555; color: #888; cursor: not-allowed; }
+        .msg-sucesso { font-size: 20px; color: #2ecc71; font-weight: bold; display: none; margin-top: 20px; padding: 12px; background: rgba(46, 204, 113, 0.12); border-radius: 8px; border: 1px solid #2ecc71; }
+    </style>
+</head>
+<body>
+
+    <div class="status-rede online" id="badge_rede_arbitro">🟢 Connected to scoring table</div>
+
+    <!-- Tela de Bloqueio por Senha (exibida apenas quando ativada pelo organizador) -->
+    <div id="painel_senha_arbitro" style="display: none; background: #222; padding: 25px 20px; border-radius: 8px; border: 1px solid #16a085; max-width: 400px; margin: 15px auto;">
+        <h3 style="margin-top: 0; color: #1abc9c;">🔐 Restricted Referee access</h3>
+        <p style="font-size: 14px; color: #ccc; margin-bottom: 15px;">Type the password:</p>
+        <input type="password" id="input_senha_login_arbitro" placeholder="Senha / PIN" onkeypress="if(event.key==='Enter') autenticarArbitro()" style="width: 100%; padding: 14px; font-size: 20px; text-align: center; border-radius: 6px; border: 1px solid #555; background: #111; color: #fff; box-sizing: border-box; margin-bottom: 12px;">
+        <button type="button" onclick="autenticarArbitro()" style="width: 100%; padding: 15px; font-size: 18px; font-weight: bold; background: #16a085; color: #fff; border: none; border-radius: 6px; cursor: pointer;">LIBERAR PAINEL</button>
+        <div id="erro_senha_arbitro" style="display: none; color: #e74c3c; font-size: 14px; font-weight: bold; margin-top: 12px;"></div>
+    </div>
+
+    <div class="cabecalho" id="cabecalho_arbitro">
+        <div>
+            <label style="display:block; margin-bottom: 6px; font-weight:bold; color:#f39c12;">1. Your Platform:</label>
+            <select id="plataforma_arbitro" onchange="trocarPlataformaArbitro()">
+                <option value="1">🎯 Platform 1</option>
+                <option value="2">🎯 Platform 2</option>
+                <option value="3">🎯 Platform 3</option>
+                <option value="4">🎯 Platform 4</option>
+                <option value="5">🎯 Platform 5</option>
+            </select>
+        </div>
+
+        <div>
+            <label style="display:block; margin-bottom: 6px; font-weight:bold; color:#aaa;">2. Your Seat / Position:</label>
+            <select id="posicao_arbitro" onchange="verificarEstado()">
+                <option value="">-- Select your position --</option>
+                <option value="esquerda">Left Side Referee</option>
+                <option value="central">Head Referee (Center)</option>
+                <option value="direita">Right Side Referee</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Container Global da Área do Árbitro -->
+    <div id="area_voto" style="display: none;">
+        <div class="atleta-info" id="nome_atleta">Waiting for Lifter...</div>
+
+        <!-- Container isolado para os botões -->
+        <div id="container_botoes" style="display: none;">
+            <div class="botoes-voto">
+                <button class="btn-voto btn-branca" id="btn_1" onclick="selecionarVoto(1)">WHITE</button>
+                <button class="btn-voto btn-vermelha" id="btn_0" onclick="selecionarVoto(0)">RED</button>
+            </div>
+            <button class="btn-confirmar" id="btn_enviar" onclick="enviarVoto()" disabled>CONFIRM DECISION</button>
+            <div class="msg-sucesso" id="msg_sucesso">✅ Decision Recorded at the Scoring Table!</div>
+        </div>
+    </div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+    const socket = io({ reconnection: true, reconnectionDelay: 200, reconnectionDelayMax: 1000, reconnectionAttempts: Infinity });
+    const urlParams = new URLSearchParams(window.location.search);
+    let plataformaArbitro = parseInt(urlParams.get('plataforma') || localStorage.getItem('powerlifting_plataforma_arbitro') || '1', 10) || 1;
+    if (plataformaArbitro < 1 || plataformaArbitro > 5) plataformaArbitro = 1;
+
+    let votoAtual = null;
+    let editandoVotoLocal = false;
+    let estadoGlobal = null;
+    let tentativaAtualId = null;
+    let tokenArbitro = localStorage.getItem('powerlifting_token_arbitro') || '';
+    let arbitroAutorizado = true;
+    let timerDescArbitro = null;
+
+    window.onerror = function(msg, url, lineNo) {
+        console.error("🛡️ [AIRBAG ÁRBITRO]:", msg, "Linha:", lineNo);
+        return false;
+    };
+
+    async function checarAutorizacaoArbitro() {
+        try {
+            const r = await fetch('/api/arbitro/status');
+            const d = await r.json();
+            if (!d.exige_senha) {
+                definirBloqueioTelaArbitro(false);
+                return;
+            }
+            if (tokenArbitro) {
+                const rv = await fetch('/api/arbitro/verificar_token', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: tokenArbitro })
+                });
+                const dv = await rv.json();
+                if (dv.autorizado) {
+                    definirBloqueioTelaArbitro(false);
+                    return;
+                }
+            }
+            definirBloqueioTelaArbitro(true);
+        } catch (e) {}
+    }
+
+    function definirBloqueioTelaArbitro(bloquear) {
+        arbitroAutorizado = !bloquear;
+        document.getElementById('painel_senha_arbitro').style.display = bloquear ? 'block' : 'none';
+        document.getElementById('cabecalho_arbitro').style.display = bloquear ? 'none' : 'flex';
+        if (bloquear) {
+            document.getElementById('area_voto').style.display = 'none';
+        } else {
+            const pos = document.getElementById('posicao_arbitro').value;
+            document.getElementById('area_voto').style.display = pos ? 'block' : 'none';
+            renderizarInterface();
+        }
+    }
+
+    async function autenticarArbitro() {
+        const inp = document.getElementById('input_senha_login_arbitro');
+        const errEl = document.getElementById('erro_senha_arbitro');
+        const senha = inp ? inp.value.trim() : '';
+        if (!senha) return;
+
+        try {
+            const r = await fetch('/api/arbitro/autenticar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ senha })
+            });
+            const d = await r.json();
+            if (!r.ok || !d.ok) {
+                errEl.innerText = d.erro || "Wrong Password.";
+                errEl.style.display = 'block';
+                return;
+            }
+            tokenArbitro = d.token || '';
+            localStorage.setItem('powerlifting_token_arbitro', tokenArbitro);
+            errEl.style.display = 'none';
+            inp.value = '';
+            definirBloqueioTelaArbitro(false);
+            socket.emit('solicitar_estado_plataforma', plataformaArbitro);
+        } catch (e) {
+            errEl.innerText = "Connection error.";
+            errEl.style.display = 'block';
+        }
+    }
+
+    socket.on('config_senha_arbitro_alterada', () => { checarAutorizacaoArbitro(); });
+    socket.on('arbitro_nao_autorizado', () => {
+        tokenArbitro = '';
+        localStorage.removeItem('powerlifting_token_arbitro');
+        definirBloqueioTelaArbitro(true);
+    });
+
+    window.onload = async function() {
+        document.getElementById('plataforma_arbitro').value = String(plataformaArbitro);
+        const posParam = urlParams.get('posicao');
+        const posSalva = (posParam && ['esquerda', 'central', 'direita'].includes(posParam))
+            ? posParam
+            : (localStorage.getItem('powerlifting_posicao_arbitro') || '');
+        if (posSalva) {
+            document.getElementById('posicao_arbitro').value = posSalva;
+            document.getElementById('area_voto').style.display = 'block';
+        }
+        await checarAutorizacaoArbitro();
+        socket.emit('solicitar_estado_plataforma', plataformaArbitro);
+    };
+
+    socket.on('connect', () => {
+        if (timerDescArbitro) { clearTimeout(timerDescArbitro); timerDescArbitro = null; }
+        const b = document.getElementById('badge_rede_arbitro');
+        if (b) { b.className = 'status-rede online'; b.innerText = '🟢 Connected to Scoring Table'; }
+        checarAutorizacaoArbitro();
+        socket.emit('solicitar_estado_plataforma', plataformaArbitro);
+    });
+
+    socket.on('disconnect', () => {
+        if (timerDescArbitro) clearTimeout(timerDescArbitro);
+        timerDescArbitro = setTimeout(() => {
+            const b = document.getElementById('badge_rede_arbitro');
+            if (b) { b.className = 'status-rede offline'; b.innerText = '🔴 Reconnecting to Wi-fi...'; }
+        }, 2500);
+    });
+
+    function trocarPlataformaArbitro() {
+        plataformaArbitro = parseInt(document.getElementById('plataforma_arbitro').value, 10) || 1;
+        localStorage.setItem('powerlifting_plataforma_arbitro', String(plataformaArbitro));
+        tentativaAtualId = null;
+        resetarBotoesLocais();
+        socket.emit('solicitar_estado_plataforma', plataformaArbitro);
+    }
+
+    socket.on('sincronizar_estado', (estado) => {
+        try {
+            if (!estado) return;
+            const platEstado = parseInt(estado.plataforma || 1, 10);
+            if (platEstado !== plataformaArbitro) return;
+
+            estadoGlobal = estado;
+            renderizarInterface();
+        } catch (e) {
+            console.error("State synchronization error:", e);
+        }
+    });
+
+    function verificarEstado() {
+        const posicao = document.getElementById('posicao_arbitro').value;
+        localStorage.setItem('powerlifting_posicao_arbitro', posicao);
+        if (!arbitroAutorizado) return;
+        document.getElementById('area_voto').style.display = posicao ? 'block' : 'none';
+        editandoVotoLocal = false;
+        renderizarInterface();
+    }
+
+    function renderizarInterface() {
+        try {
+            if (!estadoGlobal) return;
+            const posicao = document.getElementById('posicao_arbitro').value;
+            if (!posicao) return;
+
+            if (Number(estadoGlobal.modo_arbitro) === 1 && posicao !== 'central') {
+                document.getElementById('nome_atleta').innerText = "Single Referee Mode Active (Only the Head Referee votes in this round)";
+                document.getElementById('container_botoes').style.display = 'none';
+                return;
+            }
+
+            if (estadoGlobal.atletaAtual) {
+                const pesoTxt = (!estadoGlobal.atletaAtual.pesoNaBarra || Number(estadoGlobal.atletaAtual.pesoNaBarra) <= 0)
+                    ? 'TBD'
+                    : `${estadoGlobal.atletaAtual.pesoNaBarra}kg`;
+                document.getElementById('nome_atleta').innerText = `${estadoGlobal.atletaAtual.nome || 'Lifter'} (${pesoTxt})`;
+                document.getElementById('container_botoes').style.display = 'block';
+
+                const idTentativaServidor = estadoGlobal.atletaAtual.tentativa_id || estadoGlobal.atletaAtual.id;
+                const votoNoServidor = estadoGlobal.luzes ? estadoGlobal.luzes[posicao] : null;
+
+                if (tentativaAtualId !== idTentativaServidor) {
+                    tentativaAtualId = idTentativaServidor;
+                    resetarBotoesLocais();
+                }
+
+                // Se a tentativa já foi concluída pelos 3 árbitros, exibe confirmação clara até o próximo atleta entrar
+                if (estadoGlobal.resultado !== null) {
+                    editandoVotoLocal = false;
+                    document.getElementById('btn_1').classList.toggle('ativo', votoNoServidor === 1);
+                    document.getElementById('btn_0').classList.toggle('ativo', votoNoServidor === 0);
+                    document.getElementById('btn_enviar').disabled = true;
+                    const msgEl = document.getElementById('msg_sucesso');
+                    msgEl.innerText = estadoGlobal.resultado === 'valido'
+                        ? '✅ Decision Finalized at the Scoring Table! (GOOD LIFT)'
+                        : '✅ Decision Finalized at the Scoring Table! (NO LIFT)';
+                    msgEl.style.display = 'block';
+                    return;
+                }
+
+                // Se o árbitro está no meio da escolha/troca de voto antes de clicar em Confirmar, o heartbeat não sobrescreve
+                if (editandoVotoLocal) {
+                    return;
+                }
+
+                if (votoNoServidor === 1 || votoNoServidor === 0) {
+                    votoAtual = votoNoServidor;
+                    document.getElementById('btn_1').classList.toggle('ativo', votoNoServidor === 1);
+                    document.getElementById('btn_0').classList.toggle('ativo', votoNoServidor === 0);
+                    document.getElementById('btn_enviar').disabled = true;
+                    const msgEl = document.getElementById('msg_sucesso');
+                    msgEl.innerText = '✅ Decision Recorded at the Scoring Table! (Waiting for other referees)';
+                    msgEl.style.display = 'block';
+                } else if (votoNoServidor === null && document.getElementById('msg_sucesso').style.display === 'block') {
+                    // Caso a mesa tenha anulado o julgamento ou limpo as luzes, libera novamente os botões
+                    resetarBotoesLocais();
+                }
+            } else {
+                document.getElementById('nome_atleta').innerText = "Waiting for Lifter...";
+                document.getElementById('container_botoes').style.display = 'none';
+                tentativaAtualId = null;
+                resetarBotoesLocais();
+            }
+        } catch (e) {
+            console.error("Erro ao renderizar interface do árbitro:", e);
+        }
+    }
+
+    function resetarBotoesLocais() {
+        votoAtual = null;
+        editandoVotoLocal = false;
+        document.getElementById('btn_1').classList.remove('ativo');
+        document.getElementById('btn_0').classList.remove('ativo');
+        document.getElementById('btn_enviar').disabled = true;
+        document.getElementById('msg_sucesso').style.display = 'none';
+    }
+
+    function selecionarVoto(valor) {
+        if (!estadoGlobal || !estadoGlobal.atletaAtual || estadoGlobal.resultado !== null) return;
+        votoAtual = valor;
+        editandoVotoLocal = true;
+        document.getElementById('btn_1').classList.remove('ativo');
+        document.getElementById('btn_0').classList.remove('ativo');
+        document.getElementById(`btn_${valor}`).classList.add('ativo');
+        document.getElementById('btn_enviar').disabled = false;
+        document.getElementById('msg_sucesso').style.display = 'none';
+    }
+
+    function enviarVoto() {
+        const posicao = document.getElementById('posicao_arbitro').value;
+        if (votoAtual === null || !posicao) return;
+
+        editandoVotoLocal = false;
+        const idTentativaAtiva = estadoGlobal?.atletaAtual
+            ? (estadoGlobal.atletaAtual.tentativa_id || estadoGlobal.atletaAtual.id)
+            : tentativaAtualId;
+
+        socket.emit('arbitro_votou', {
+            plataforma: plataformaArbitro,
+            tentativa_id: idTentativaAtiva,
+            posicao: posicao,
+            voto: votoAtual,
+            token_arbitro: tokenArbitro
+        });
+        document.getElementById('btn_enviar').disabled = true;
+        const msgEl = document.getElementById('msg_sucesso');
+        msgEl.innerText = '✅ Decision Recorded at the Scoring Table!';
+        msgEl.style.display = 'block';
+    }
+
+    // Mantém a tela do celular do árbitro acesa e ressincroniza automaticamente ao desbloquear a tela
+    let wakeLockArbitro = null;
+    async function ativarWakeLockArbitro() {
+        try {
+            if ('wakeLock' in navigator && document.visibilityState === 'visible') {
+                wakeLockArbitro = await navigator.wakeLock.request('screen');
+            }
+        } catch (e) {}
+    }
+
+    document.addEventListener('click', ativarWakeLockArbitro, { passive: true });
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            socket.emit('solicitar_estado_plataforma', plataformaArbitro);
+            ativarWakeLockArbitro();
+        }
+    });
+
+    setInterval(() => {
+        if (socket.connected && document.visibilityState === 'visible') {
+            socket.emit('solicitar_estado_plataforma', plataformaArbitro);
+        }
+    }, 4000);
+</script>
+</body>
+</html>
